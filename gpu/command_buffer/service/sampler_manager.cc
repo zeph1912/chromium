@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/sampler_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include "base/bind.h"
 #include "base/logging.h"
@@ -40,7 +41,7 @@ Sampler::Sampler(SamplerManager* manager, GLuint client_id, GLuint service_id)
 
 Sampler::~Sampler() {
   if (manager_->have_context_) {
-    glDeleteSamplers(1, &service_id_);
+    vendorDeleteSamplers(1, &service_id_);
   }
 }
 
@@ -183,7 +184,7 @@ void SamplerManager::SetParameteri(
           error_state, result, function_name, pname, param);
     }
   } else {
-    glSamplerParameteri(sampler->service_id(), pname, param);
+    vendorSamplerParameteri(sampler->service_id(), pname, param);
   }
 }
 
@@ -202,7 +203,7 @@ void SamplerManager::SetParameterf(
           error_state, result, function_name, pname, param);
     }
   } else {
-    glSamplerParameterf(sampler->service_id(), pname, param);
+    vendorSamplerParameterf(sampler->service_id(), pname, param);
   }
 }
 

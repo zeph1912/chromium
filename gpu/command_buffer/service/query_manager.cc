@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/query_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -53,7 +54,7 @@ AbstractIntegerQuery::AbstractIntegerQuery(QueryManager* manager,
                                            QuerySync* sync)
     : Query(manager, target, std::move(buffer), sync) {
   GLuint service_id = 0;
-  glGenQueries(1, &service_id);
+  vendorGenQueries(1, &service_id);
   DCHECK_NE(0u, service_id);
   service_ids_.push_back(service_id);
 }
@@ -62,7 +63,7 @@ void AbstractIntegerQuery::Begin() {
   MarkAsActive();
   // Delete all but the first one when beginning a new query.
   if (service_ids_.size() > 1) {
-    glDeleteQueries(service_ids_.size() - 1, &service_ids_[1]);
+    vendorDeleteQueries(service_ids_.size() - 1, &service_ids_[1]);
     service_ids_.resize(1);
   }
   BeginQueryHelper(target(), service_ids_.back());
@@ -86,7 +87,7 @@ void AbstractIntegerQuery::Resume() {
   MarkAsActive();
 
   GLuint service_id = 0;
-  glGenQueries(1, &service_id);
+  vendorGenQueries(1, &service_id);
   DCHECK_NE(0u, service_id);
   service_ids_.push_back(service_id);
   BeginQueryHelper(target(), service_ids_.back());
@@ -94,7 +95,7 @@ void AbstractIntegerQuery::Resume() {
 
 void AbstractIntegerQuery::Destroy(bool have_context) {
   if (have_context && !IsDeleted()) {
-    glDeleteQueries(service_ids_.size(), &service_ids_[0]);
+    vendorDeleteQueries(service_ids_.size(), &service_ids_[0]);
     service_ids_.clear();
     MarkAsDeleted();
   }
@@ -105,7 +106,7 @@ AbstractIntegerQuery::~AbstractIntegerQuery() {
 
 bool AbstractIntegerQuery::AreAllResultsAvailable() {
   GLuint available = 0;
-  glGetQueryObjectuiv(
+  vendorGetQueryObjectuiv(
       service_ids_.back(), GL_QUERY_RESULT_AVAILABLE_EXT, &available);
   return !!available;
 }
@@ -136,7 +137,7 @@ void BooleanQuery::Process(bool did_finish) {
     return;
   for (const GLuint& service_id : service_ids_) {
     GLuint result = 0;
-    glGetQueryObjectuiv(service_id, GL_QUERY_RESULT_EXT, &result);
+    vendorGetQueryObjectuiv(service_id, GL_QUERY_RESULT_EXT, &result);
     if (result != 0) {
       MarkAsCompleted(1);
       return;
@@ -172,7 +173,7 @@ void SummedIntegerQuery::Process(bool did_finish) {
   GLuint summed_result = 0;
   for (const GLuint& service_id : service_ids_) {
     GLuint result = 0;
-    glGetQueryObjectuiv(service_id, GL_QUERY_RESULT_EXT, &result);
+    vendorGetQueryObjectuiv(service_id, GL_QUERY_RESULT_EXT, &result);
     summed_result += result;
   }
   MarkAsCompleted(summed_result);
@@ -870,12 +871,12 @@ GLenum QueryManager::AdjustTargetForEmulation(GLenum target) {
 
 void QueryManager::BeginQueryHelper(GLenum target, GLuint id) {
   target = AdjustTargetForEmulation(target);
-  glBeginQuery(target, id);
+  vendorBeginQuery(target, id);
 }
 
 void QueryManager::EndQueryHelper(GLenum target) {
   target = AdjustTargetForEmulation(target);
-  glEndQuery(target);
+  vendorEndQuery(target);
 }
 
 void QueryManager::UpdateDisjointValue() {

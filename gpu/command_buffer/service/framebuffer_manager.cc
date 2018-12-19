@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/framebuffer_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -399,7 +400,7 @@ Framebuffer::~Framebuffer() {
   if (manager_) {
     if (manager_->have_context_) {
       GLuint id = service_id();
-      glDeleteFramebuffersEXT(1, &id);
+      vendorDeleteFramebuffersEXT(1, &id);
     }
     manager_->StopTracking(this);
     manager_ = NULL;
@@ -470,11 +471,11 @@ void Framebuffer::ClearUnclearedIntRenderbufferAttachments(
       GLint drawbuffer = it->first - GL_COLOR_ATTACHMENT0;
       if (GLES2Util::IsUnsignedIntegerFormat(internal_format)) {
         const GLuint kZero[] = { 0u, 0u, 0u, 0u };
-        glClearBufferuiv(GL_COLOR, drawbuffer, kZero);
+        vendorClearBufferuiv(GL_COLOR, drawbuffer, kZero);
       } else {
         DCHECK(GLES2Util::IsSignedIntegerFormat(internal_format));
         const static GLint kZero[] = { 0, 0, 0, 0 };
-        glClearBufferiv(GL_COLOR, drawbuffer, kZero);
+        vendorClearBufferiv(GL_COLOR, drawbuffer, kZero);
       }
       it->second->SetCleared(renderbuffer_manager, nullptr, true);
     }
@@ -524,12 +525,12 @@ bool Framebuffer::PrepareDrawBuffersForClearingUninitializedAttachments(
     }
   }
   if (different)
-    glDrawBuffersARB(manager_->max_draw_buffers_, buffers.get());
+    vendorDrawBuffersARB(manager_->max_draw_buffers_, buffers.get());
   return different;
 }
 
 void Framebuffer::RestoreDrawBuffers() const {
-  glDrawBuffersARB(manager_->max_draw_buffers_, adjusted_draw_buffers_.get());
+  vendorDrawBuffersARB(manager_->max_draw_buffers_, adjusted_draw_buffers_.get());
 }
 
 bool Framebuffer::ValidateAndAdjustDrawBuffers(
@@ -564,7 +565,7 @@ void Framebuffer::AdjustDrawBuffersImpl(uint32_t desired_mask) {
     }
   }
   adjusted_draw_buffer_bound_mask_ = desired_mask;
-  glDrawBuffersARB(manager_->max_draw_buffers_, adjusted_draw_buffers_.get());
+  vendorDrawBuffersARB(manager_->max_draw_buffers_, adjusted_draw_buffers_.get());
 }
 
 bool Framebuffer::ContainsActiveIntegerAttachments() const {
@@ -796,7 +797,7 @@ GLenum Framebuffer::IsPossiblyComplete(const FeatureInfo* feature_info) const {
 GLenum Framebuffer::GetStatus(
     TextureManager* texture_manager, GLenum target) const {
   if (!manager_->GetFramebufferComboCompleteCache()) {
-    return glCheckFramebufferStatusEXT(target);
+    return vendorCheckFramebufferStatusEXT(target);
   }
   // Check if we have this combo already.
   std::string signature;
@@ -825,7 +826,7 @@ GLenum Framebuffer::GetStatus(
     return GL_FRAMEBUFFER_COMPLETE;
   }
 
-  GLenum result = glCheckFramebufferStatusEXT(target);
+  GLenum result = vendorCheckFramebufferStatusEXT(target);
 
   if (result == GL_FRAMEBUFFER_COMPLETE) {
     manager_->GetFramebufferComboCompleteCache()->SetComplete(signature);
@@ -981,7 +982,7 @@ void Framebuffer::DoUnbindGLAttachmentsForWorkaround(GLenum target) {
   // Replace all attachments with the default Renderbuffer.
   for (AttachmentMap::const_iterator it = attachments_.begin();
        it != attachments_.end(); ++it) {
-    glFramebufferRenderbufferEXT(target, it->first, GL_RENDERBUFFER, 0);
+    vendorFramebufferRenderbufferEXT(target, it->first, GL_RENDERBUFFER, 0);
   }
 }
 

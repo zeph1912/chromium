@@ -140,7 +140,6 @@ TlsVectorEntry* ConstructTlsVector() {
       key = base::subtle::NoBarrier_Load(&g_native_tls_key);
     }
   }
-  CHECK(!PlatformThreadLocalStorage::GetTLSValue(key));
 
   // Some allocators, such as TCMalloc, make use of thread local storage. As a
   // result, any attempt to call new (or malloc) will lazily cause such a system

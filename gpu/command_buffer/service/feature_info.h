@@ -227,7 +227,7 @@ class GPU_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
   bool oes_texture_float_linear_available_ = false;
   bool oes_texture_half_float_linear_available_ = false;
 
-  bool disable_shader_translator_;
+  bool disable_shader_translator_ = false;
   std::unique_ptr<gl::GLVersionInfo> gl_version_info_;
 
   DISALLOW_COPY_AND_ASSIGN(FeatureInfo);

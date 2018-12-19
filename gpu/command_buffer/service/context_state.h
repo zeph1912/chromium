@@ -17,6 +17,7 @@
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "gpu/command_buffer/service/vertex_array_manager.h"
 #include "gpu/command_buffer/service/vertex_attrib_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 #include "gpu/gpu_export.h"
 
 namespace gpu {
@@ -198,8 +199,8 @@ struct GPU_EXPORT ContextState {
                Logger* logger);
   ~ContextState();
 
-  void set_api(gl::GLApi* api) { api_ = api; }
-  gl::GLApi* api() const { return api_; }
+  void set_api(gl::VendorGLAPI* api) { api_ = api; }
+  gl::VendorGLAPI* api() const { return api_; }
 
   void Initialize();
 
@@ -417,7 +418,7 @@ struct GPU_EXPORT ContextState {
   // vector<[x,y,w,h]>. Always has space for MAX_WINDOW_RECTANGLES rectangles.
   std::vector<GLint> window_rectangles_;
 
-  gl::GLApi* api_ = nullptr;
+  gl::VendorGLAPI* api_ = nullptr;
   FeatureInfo* feature_info_;
   std::unique_ptr<ErrorState> error_state_;
 };

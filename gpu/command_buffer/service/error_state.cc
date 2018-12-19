@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/error_state.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stdint.h>
 
@@ -107,7 +108,7 @@ uint32_t ErrorStateImpl::GetGLError() {
 }
 
 GLenum ErrorStateImpl::GetErrorHandleContextLoss() {
-  GLenum error = glGetError();
+  GLenum error = vendorGetError();
   if (error == GL_CONTEXT_LOST_KHR) {
     client_->OnContextLostError();
     // Do not expose GL_CONTEXT_LOST_KHR, as the version of the robustness
@@ -204,7 +205,7 @@ void ErrorStateImpl::ClearRealGLErrors(
     const char* filename, int line, const char* function_name) {
   // Clears and logs all current gl errors.
   GLenum error;
-  while ((error = glGetError()) != GL_NO_ERROR) {
+  while ((error = vendorGetError()) != GL_NO_ERROR) {
     if (error != GL_CONTEXT_LOST_KHR && error != GL_OUT_OF_MEMORY) {
       // GL_OUT_OF_MEMORY can legally happen on lost device.
       logger_->LogMessage(

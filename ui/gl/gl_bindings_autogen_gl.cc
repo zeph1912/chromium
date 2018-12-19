@@ -11,6 +11,7 @@
 #include <string>
 
 #include "base/trace_event/trace_event.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_enums.h"

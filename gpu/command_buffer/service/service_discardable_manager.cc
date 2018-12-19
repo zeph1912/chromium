@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/service_discardable_manager.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 
 #include "base/memory/singleton.h"
 #include "base/sys_info.h"
@@ -155,6 +156,7 @@ void ServiceDiscardableManager::OnTextureSizeChanged(
     uint32_t texture_id,
     gles2::TextureManager* texture_manager,
     size_t new_size) {
+  return;
   auto found = entries_.Get({texture_id, texture_manager});
   if (found == entries_.end())
     return;

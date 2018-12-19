@@ -15,6 +15,7 @@
 #include "gpu/command_buffer/service/program_manager.h"
 #include "gpu/command_buffer/service/renderbuffer_manager.h"
 #include "gpu/command_buffer/service/transform_feedback_manager.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_version_info.h"
@@ -619,6 +620,8 @@ void ContextState::SetBoundBuffer(GLenum target, Buffer* buffer) {
       bound_array_buffer = buffer;
       break;
     case GL_ELEMENT_ARRAY_BUFFER:
+      if (!vertex_attrib_manager.get()) {
+      }
       vertex_attrib_manager->SetElementArrayBuffer(buffer);
       break;
     case GL_COPY_READ_BUFFER:

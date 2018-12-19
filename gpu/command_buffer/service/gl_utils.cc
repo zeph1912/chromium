@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/gl_utils.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <unordered_set>
 
@@ -124,7 +125,7 @@ void QueryShaderPrecisionFormat(const gl::GLVersionInfo& gl_version_info,
     // On Mac OS with some GPUs, calling this generates a
     // GL_INVALID_OPERATION error. Avoid calling it on non-GLES2
     // platforms.
-    glGetShaderPrecisionFormat(shader_type, precision_type, range, precision);
+    vendorGetShaderPrecisionFormat(shader_type, precision_type, range, precision);
 
     // TODO(brianderson): Make the following official workarounds.
 
@@ -162,74 +163,74 @@ void PopulateNumericCapabilities(Capabilities* caps,
     shader_precision->precision = precision;
   });
 
-  glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+  vendorGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,
                 &caps->max_combined_texture_image_units);
-  glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &caps->max_cube_map_texture_size);
-  glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS,
+  vendorGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &caps->max_cube_map_texture_size);
+  vendorGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS,
                 &caps->max_fragment_uniform_vectors);
-  glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &caps->max_renderbuffer_size);
-  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &caps->max_texture_image_units);
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &caps->max_texture_size);
-  glGetIntegerv(GL_MAX_VARYING_VECTORS, &caps->max_varying_vectors);
-  glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps->max_vertex_attribs);
-  glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS,
+  vendorGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &caps->max_renderbuffer_size);
+  vendorGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &caps->max_texture_image_units);
+  vendorGetIntegerv(GL_MAX_TEXTURE_SIZE, &caps->max_texture_size);
+  vendorGetIntegerv(GL_MAX_VARYING_VECTORS, &caps->max_varying_vectors);
+  vendorGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &caps->max_vertex_attribs);
+  vendorGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS,
                 &caps->max_vertex_texture_image_units);
-  glGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS,
+  vendorGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS,
                 &caps->max_vertex_uniform_vectors);
   {
     GLint dims[2] = {0, 0};
-    glGetIntegerv(GL_MAX_VIEWPORT_DIMS, dims);
+    vendorGetIntegerv(GL_MAX_VIEWPORT_DIMS, dims);
     caps->max_viewport_width = dims[0];
     caps->max_viewport_height = dims[1];
   }
-  glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS,
+  vendorGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS,
                 &caps->num_compressed_texture_formats);
-  glGetIntegerv(GL_NUM_SHADER_BINARY_FORMATS, &caps->num_shader_binary_formats);
+  vendorGetIntegerv(GL_NUM_SHADER_BINARY_FORMATS, &caps->num_shader_binary_formats);
 
   if (feature_info->IsWebGL2OrES3Context()) {
-    glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &caps->max_3d_texture_size);
-    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &caps->max_array_texture_layers);
-    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &caps->max_color_attachments);
-    glGetInteger64v(GL_MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &caps->max_3d_texture_size);
+    vendorGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &caps->max_array_texture_layers);
+    vendorGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &caps->max_color_attachments);
+    vendorGetInteger64v(GL_MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS,
                     &caps->max_combined_fragment_uniform_components);
-    glGetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS,
+    vendorGetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS,
                   &caps->max_combined_uniform_blocks);
-    glGetInteger64v(GL_MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS,
+    vendorGetInteger64v(GL_MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS,
                     &caps->max_combined_vertex_uniform_components);
-    glGetIntegerv(GL_MAX_DRAW_BUFFERS, &caps->max_draw_buffers);
-    glGetInteger64v(GL_MAX_ELEMENT_INDEX, &caps->max_element_index);
-    glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &caps->max_elements_indices);
-    glGetIntegerv(GL_MAX_ELEMENTS_VERTICES, &caps->max_elements_vertices);
-    glGetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_DRAW_BUFFERS, &caps->max_draw_buffers);
+    vendorGetInteger64v(GL_MAX_ELEMENT_INDEX, &caps->max_element_index);
+    vendorGetIntegerv(GL_MAX_ELEMENTS_INDICES, &caps->max_elements_indices);
+    vendorGetIntegerv(GL_MAX_ELEMENTS_VERTICES, &caps->max_elements_vertices);
+    vendorGetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS,
                   &caps->max_fragment_input_components);
-    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS,
+    vendorGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS,
                   &caps->max_fragment_uniform_blocks);
-    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS,
                   &caps->max_fragment_uniform_components);
-    glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->max_program_texel_offset);
-    glGetInteger64v(GL_MAX_SERVER_WAIT_TIMEOUT, &caps->max_server_wait_timeout);
-    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->max_texture_lod_bias);
-    glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &caps->max_program_texel_offset);
+    vendorGetInteger64v(GL_MAX_SERVER_WAIT_TIMEOUT, &caps->max_server_wait_timeout);
+    vendorGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->max_texture_lod_bias);
+    vendorGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS,
                   &caps->max_transform_feedback_interleaved_components);
-    glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
+    vendorGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
                   &caps->max_transform_feedback_separate_attribs);
-    glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS,
                   &caps->max_transform_feedback_separate_components);
-    glGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, &caps->max_uniform_block_size);
-    glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS,
+    vendorGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, &caps->max_uniform_block_size);
+    vendorGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS,
                   &caps->max_uniform_buffer_bindings);
-    glGetIntegerv(GL_MAX_VARYING_COMPONENTS, &caps->max_varying_components);
-    glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_VARYING_COMPONENTS, &caps->max_varying_components);
+    vendorGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS,
                   &caps->max_vertex_output_components);
-    glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS,
+    vendorGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS,
                   &caps->max_vertex_uniform_blocks);
-    glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS,
+    vendorGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS,
                   &caps->max_vertex_uniform_components);
-    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->min_program_texel_offset);
-    glGetIntegerv(GL_NUM_EXTENSIONS, &caps->num_extensions);
-    glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS,
+    vendorGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->min_program_texel_offset);
+    vendorGetIntegerv(GL_NUM_EXTENSIONS, &caps->num_extensions);
+    vendorGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS,
                   &caps->num_program_binary_formats);
-    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
+    vendorGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
                   &caps->uniform_buffer_offset_alignment);
     caps->major_version = 3;
     caps->minor_version = 0;
@@ -237,7 +238,7 @@ void PopulateNumericCapabilities(Capabilities* caps,
   if (feature_info->feature_flags().multisampled_render_to_texture ||
       feature_info->feature_flags().chromium_framebuffer_multisample ||
       feature_info->IsWebGL2OrES3Context()) {
-    glGetIntegerv(GL_MAX_SAMPLES, &caps->max_samples);
+    vendorGetIntegerv(GL_MAX_SAMPLES, &caps->max_samples);
   }
 }
 
@@ -277,20 +278,20 @@ void APIENTRY LogGLDebugMessage(GLenum source,
 }
 
 void InitializeGLDebugLogging() {
-  glEnable(GL_DEBUG_OUTPUT);
-  glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+  vendorEnable(GL_DEBUG_OUTPUT);
+  vendorEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
   // Enable logging of medium and high severity messages
-  glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_HIGH, 0,
+  vendorDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_HIGH, 0,
                         nullptr, GL_TRUE);
-  glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM, 0,
+  vendorDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM, 0,
                         nullptr, GL_TRUE);
-  glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0,
+  vendorDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0,
                         nullptr, GL_FALSE);
-  glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+  vendorDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
                         GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
 
-  glDebugMessageCallback(&LogGLDebugMessage, nullptr);
+  vendorDebugMessageCallback(&LogGLDebugMessage, nullptr);
 }
 
 bool ValidContextLostReason(GLenum reason) {

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/gles2_cmd_apply_framebuffer_attachment_cmaa_intel.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include "base/logging.h"
 #include "gpu/command_buffer/service/framebuffer_manager.h"
@@ -75,34 +76,34 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::Initialize(
     // If not supported, GLSL needs to convert the data to/from float so there
     // is a small extra cost.
     {
-      glActiveTexture(GL_TEXTURE0);
+      vendorActiveTexture(GL_TEXTURE0);
 
       GLuint rgba8ui_texture = 0, depth_texture = 0;
-      glGenTextures(1, &rgba8ui_texture);
-      glBindTexture(GL_TEXTURE_2D, rgba8ui_texture);
-      glTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_RGBA8UI, 4, 4);
+      vendorGenTextures(1, &rgba8ui_texture);
+      vendorBindTexture(GL_TEXTURE_2D, rgba8ui_texture);
+      vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_RGBA8UI, 4, 4);
 
-      glGenTextures(1, &depth_texture);
-      glBindTexture(GL_TEXTURE_2D, depth_texture);
-      glTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, 4, 4);
+      vendorGenTextures(1, &depth_texture);
+      vendorBindTexture(GL_TEXTURE_2D, depth_texture);
+      vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, 4, 4);
 
       // Create the FBO
       GLuint rgba8ui_framebuffer = 0;
-      glGenFramebuffersEXT(1, &rgba8ui_framebuffer);
-      glBindFramebufferEXT(GL_FRAMEBUFFER, rgba8ui_framebuffer);
+      vendorGenFramebuffersEXT(1, &rgba8ui_framebuffer);
+      vendorBindFramebufferEXT(GL_FRAMEBUFFER, rgba8ui_framebuffer);
 
       // Bind to the FBO to test support
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+      vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                 GL_TEXTURE_2D, rgba8ui_texture, 0);
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+      vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                 GL_TEXTURE_2D, depth_texture, 0);
-      GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
+      GLenum status = vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
 
       supports_usampler_ = (status == GL_FRAMEBUFFER_COMPLETE);
 
-      glDeleteFramebuffersEXT(1, &rgba8ui_framebuffer);
-      glDeleteTextures(1, &rgba8ui_texture);
-      glDeleteTextures(1, &depth_texture);
+      vendorDeleteFramebuffersEXT(1, &rgba8ui_framebuffer);
+      vendorDeleteTextures(1, &rgba8ui_texture);
+      vendorDeleteTextures(1, &depth_texture);
 
       decoder->RestoreTextureUnitBindings(0);
       decoder->RestoreActiveTexture();
@@ -159,14 +160,14 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::Initialize(
       CreateProgram(blur.str().c_str(), vert_str_, cmaa_frag_c_str);
 
   edges0_shader_result_rgba_texture_slot1_ =
-      glGetUniformLocation(edges0_shader_, "g_resultRGBATextureSlot1");
+      vendorGetUniformLocation(edges0_shader_, "g_resultRGBATextureSlot1");
   edges0_shader_target_texture_slot2_ =
-      glGetUniformLocation(edges0_shader_, "g_targetTextureSlot2");
+      vendorGetUniformLocation(edges0_shader_, "g_targetTextureSlot2");
   edges1_shader_result_edge_texture_ =
-      glGetUniformLocation(edges1_shader_, "g_resultEdgeTexture");
+      vendorGetUniformLocation(edges1_shader_, "g_resultEdgeTexture");
   edges_combine_shader_result_edge_texture_ =
-      glGetUniformLocation(edges_combine_shader_, "g_resultEdgeTexture");
-  process_and_apply_shader_result_rgba_texture_slot1_ = glGetUniformLocation(
+      vendorGetUniformLocation(edges_combine_shader_, "g_resultEdgeTexture");
+  process_and_apply_shader_result_rgba_texture_slot1_ = vendorGetUniformLocation(
       process_and_apply_shader_, "g_resultRGBATextureSlot1");
 
   initialized_ = true;
@@ -178,11 +179,11 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::Destroy() {
 
   ReleaseTextures();
 
-  glDeleteProgram(process_and_apply_shader_);
-  glDeleteProgram(edges_combine_shader_);
-  glDeleteProgram(edges1_shader_);
-  glDeleteProgram(edges0_shader_);
-  glDeleteProgram(debug_display_edges_shader_);
+  vendorDeleteProgram(process_and_apply_shader_);
+  vendorDeleteProgram(edges_combine_shader_);
+  vendorDeleteProgram(edges1_shader_);
+  vendorDeleteProgram(edges0_shader_);
+  vendorDeleteProgram(debug_display_edges_shader_);
 
   initialized_ = false;
 }
@@ -201,12 +202,12 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::
   if (!framebuffer)
     return;
 
-  glDisable(GL_SCISSOR_TEST);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_BLEND);
+  vendorDisable(GL_SCISSOR_TEST);
+  vendorDisable(GL_STENCIL_TEST);
+  vendorDisable(GL_CULL_FACE);
+  vendorDisable(GL_BLEND);
   if (decoder->GetFeatureInfo()->feature_flags().ext_window_rectangles) {
-    glWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
+    vendorWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
   }
 
   // Process each color attachment of the current draw framebuffer.
@@ -322,13 +323,13 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
   }
 
   // Setup the main fbo
-  glBindFramebufferEXT(GL_FRAMEBUFFER, cmaa_framebuffer_);
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, cmaa_framebuffer_);
+  vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                             mini4_edge_texture_, 0);
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+  vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
                             mini4_edge_depth_texture_, 0);
 #if DCHECK_IS_ON()
-  GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
+  GLenum status = vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
   if (status != GL_FRAMEBUFFER_COMPLETE) {
     DLOG(ERROR) << "ApplyFramebufferAttachmentCMAAINTEL: "
                 << "Incomplete framebuffer.";
@@ -338,8 +339,8 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
 #endif
 
   // Setup the viewport to match the fbo
-  glViewport(0, 0, (width_ + 1) / 2, (height_ + 1) / 2);
-  glEnable(GL_DEPTH_TEST);
+  vendorViewport(0, 0, (width_ + 1) / 2, (height_ + 1) / 2);
+  vendorEnable(GL_DEPTH_TEST);
 
   // Detect edges Pass 0
   //   - For every pixel detect edges to the right and down and output depth
@@ -355,32 +356,32 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
   GLenum edge_format = supports_r8_image_ ? GL_R8 : GL_R32F;
 
   {
-    glUseProgram(edges0_shader_);
-    glUniform2f(0, 1.0f / width_, 1.0f / height_);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_ALWAYS);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    vendorUseProgram(edges0_shader_);
+    vendorUniform2f(0, 1.0f / width_, 1.0f / height_);
+    vendorDepthMask(GL_TRUE);
+    vendorDepthFunc(GL_ALWAYS);
+    vendorColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     if (!is_gles31_compatible_) {
-      glUniform1i(edges0_shader_result_rgba_texture_slot1_, 1);
-      glUniform1i(edges0_shader_target_texture_slot2_, 2);
+      vendorUniform1i(edges0_shader_result_rgba_texture_slot1_, 1);
+      vendorUniform1i(edges0_shader_target_texture_slot2_, 2);
     }
-    glBindImageTextureEXT(1, working_color_texture_, 0, GL_FALSE, 0,
+    vendorBindImageTextureEXT(1, working_color_texture_, 0, GL_FALSE, 0,
                           GL_WRITE_ONLY, GL_RGBA8);
     if (do_copy) {
-      glUniform1i(2, GL_TRUE);
-      glBindImageTextureEXT(2, dest_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+      vendorUniform1i(2, GL_TRUE);
+      vendorBindImageTextureEXT(2, dest_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                             GL_RGBA8);
     } else {
-      glUniform1i(2, GL_FALSE);
+      vendorUniform1i(2, GL_FALSE);
     }
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, source_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    vendorActiveTexture(GL_TEXTURE0);
+    vendorBindTexture(GL_TEXTURE_2D, source_texture);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    vendorDrawArrays(GL_TRIANGLES, 0, 3);
   }
 
   // Detect edges Pass 1 (finish the previous pass edge processing).
@@ -392,24 +393,24 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
   // Outputs
   //  image2D g_resultEdgeTexture         edge_texture_b               image0
   {
-    glUseProgram(edges1_shader_);
-    glUniform2f(0, 1.0f / width_, 1.0f / height_);
-    glDepthMask(GL_FALSE);
-    glDepthFunc(GL_LESS);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    vendorUseProgram(edges1_shader_);
+    vendorUniform2f(0, 1.0f / width_, 1.0f / height_);
+    vendorDepthMask(GL_FALSE);
+    vendorDepthFunc(GL_LESS);
+    vendorColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     if (!is_gles31_compatible_) {
-      glUniform1i(edges1_shader_result_edge_texture_, 0);
+      vendorUniform1i(edges1_shader_result_edge_texture_, 0);
     }
-    glBindImageTextureEXT(0, edge_texture_b, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+    vendorBindImageTextureEXT(0, edge_texture_b, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                           edge_format);
 
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, mini4_edge_texture_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorActiveTexture(GL_TEXTURE1);
+    vendorBindTexture(GL_TEXTURE_2D, mini4_edge_texture_);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    vendorDrawArrays(GL_TRIANGLES, 0, 3);
   }
 
   //  - Combine RightBottom (.xy) edges from previous pass into
@@ -429,24 +430,24 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
     // Combine edges: each pixel will now contain info on all (top, right,
     // bottom, left) edges; also mark depth 1 value on all pixels with any edge
     // and also copy source color data but only on edge pixels
-    glUseProgram(edges_combine_shader_);
-    glUniform2f(0, 1.0f / width_, 1.0f / height_);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LESS);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    vendorUseProgram(edges_combine_shader_);
+    vendorUniform2f(0, 1.0f / width_, 1.0f / height_);
+    vendorDepthMask(GL_TRUE);
+    vendorDepthFunc(GL_LESS);
+    vendorColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     if (!is_gles31_compatible_) {
-      glUniform1i(edges_combine_shader_result_edge_texture_, 0);
+      vendorUniform1i(edges_combine_shader_result_edge_texture_, 0);
     }
-    glBindImageTextureEXT(0, edge_texture_a, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+    vendorBindImageTextureEXT(0, edge_texture_a, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                           edge_format);
 
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, edge_texture_b);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorActiveTexture(GL_TEXTURE1);
+    vendorBindTexture(GL_TEXTURE_2D, edge_texture_b);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    vendorDrawArrays(GL_TRIANGLES, 0, 3);
   }
 
   // Using depth mask and [earlydepthstencil] to work on pixels with 2, 3, 4
@@ -465,35 +466,35 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
   //  g_resultRGBATextureSlot1             dest_texture                image1
   //  gl_FragDepth                         mini4_edge_texture_         fbo.depth
   {
-    glUseProgram(process_and_apply_shader_);
-    glUniform2f(0, 1.0f / width_, 1.0f / height_);
-    glDepthMask(GL_FALSE);
-    glDepthFunc(GL_LESS);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    vendorUseProgram(process_and_apply_shader_);
+    vendorUniform2f(0, 1.0f / width_, 1.0f / height_);
+    vendorDepthMask(GL_FALSE);
+    vendorDepthFunc(GL_LESS);
+    vendorColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     if (!is_gles31_compatible_) {
-      glUniform1i(process_and_apply_shader_result_rgba_texture_slot1_, 1);
+      vendorUniform1i(process_and_apply_shader_result_rgba_texture_slot1_, 1);
     }
-    glBindImageTextureEXT(1, dest_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+    vendorBindImageTextureEXT(1, dest_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                           GL_RGBA8);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, working_color_texture_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    vendorActiveTexture(GL_TEXTURE0);
+    vendorBindTexture(GL_TEXTURE_2D, working_color_texture_);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, edge_texture_a);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorActiveTexture(GL_TEXTURE1);
+    vendorBindTexture(GL_TEXTURE_2D, edge_texture_a);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    vendorDrawArrays(GL_TRIANGLES, 0, 3);
   }
 
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDisable(GL_DEPTH_TEST);
-  glDepthMask(GL_FALSE);
-  glActiveTexture(GL_TEXTURE0);
+  vendorColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  vendorDisable(GL_DEPTH_TEST);
+  vendorDepthMask(GL_FALSE);
+  vendorActiveTexture(GL_TEXTURE0);
 }
 
 void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
@@ -506,73 +507,73 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
   height_ = height;
   width_ = width;
 
-  glGenTextures(1, &rgba8_texture_);
-  glBindTexture(GL_TEXTURE_2D, rgba8_texture_);
-  glTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
+  vendorGenTextures(1, &rgba8_texture_);
+  vendorBindTexture(GL_TEXTURE_2D, rgba8_texture_);
+  vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
 
   // Edges texture - R8
   // OpenGLES has no single component 8/16-bit image support, so needs to be R32
   // Although CHT does support R8.
   GLenum edge_format = supports_r8_image_ ? GL_R8 : GL_R32F;
-  glGenTextures(1, &edges0_texture_);
-  glBindTexture(GL_TEXTURE_2D, edges0_texture_);
-  glTexStorage2DEXT(GL_TEXTURE_2D, 1, edge_format, width, height);
+  vendorGenTextures(1, &edges0_texture_);
+  vendorBindTexture(GL_TEXTURE_2D, edges0_texture_);
+  vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, edge_format, width, height);
 
-  glGenTextures(1, &edges1_texture_);
-  glBindTexture(GL_TEXTURE_2D, edges1_texture_);
-  glTexStorage2DEXT(GL_TEXTURE_2D, 1, edge_format, width, height);
+  vendorGenTextures(1, &edges1_texture_);
+  vendorBindTexture(GL_TEXTURE_2D, edges1_texture_);
+  vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, edge_format, width, height);
 
   // Color working texture - RGBA8
-  glGenTextures(1, &working_color_texture_);
-  glBindTexture(GL_TEXTURE_2D, working_color_texture_);
-  glTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
+  vendorGenTextures(1, &working_color_texture_);
+  vendorBindTexture(GL_TEXTURE_2D, working_color_texture_);
+  vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
 
   // Half*half compressed 4-edge-per-pixel texture - RGBA8
-  glGenTextures(1, &mini4_edge_texture_);
-  glBindTexture(GL_TEXTURE_2D, mini4_edge_texture_);
+  vendorGenTextures(1, &mini4_edge_texture_);
+  vendorBindTexture(GL_TEXTURE_2D, mini4_edge_texture_);
   GLenum format = GL_RGBA8UI;
   if (!supports_usampler_) {
     format = GL_RGBA8;
   }
-  glTexStorage2DEXT(GL_TEXTURE_2D, 1, format, (width + 1) / 2,
+  vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, format, (width + 1) / 2,
                     (height + 1) / 2);
 
   // Depth
-  glGenTextures(1, &mini4_edge_depth_texture_);
-  glBindTexture(GL_TEXTURE_2D, mini4_edge_depth_texture_);
-  glTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, (width + 1) / 2,
+  vendorGenTextures(1, &mini4_edge_depth_texture_);
+  vendorBindTexture(GL_TEXTURE_2D, mini4_edge_depth_texture_);
+  vendorTexStorage2DEXT(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, (width + 1) / 2,
                     (height + 1) / 2);
 
   // Create the FBO
-  glGenFramebuffersEXT(1, &cmaa_framebuffer_);
-  glBindFramebufferEXT(GL_FRAMEBUFFER, cmaa_framebuffer_);
+  vendorGenFramebuffersEXT(1, &cmaa_framebuffer_);
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, cmaa_framebuffer_);
 
   // We need to clear the textures before they are first used.
   // The algorithm self-clears them later.
-  glViewport(0, 0, width_, height_);
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  vendorViewport(0, 0, width_, height_);
+  vendorClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-  glBindFramebufferEXT(GL_FRAMEBUFFER, cmaa_framebuffer_);
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, cmaa_framebuffer_);
+  vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                             edges0_texture_, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
+  vendorClear(GL_COLOR_BUFFER_BIT);
 
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+  vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                             edges1_texture_, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
+  vendorClear(GL_COLOR_BUFFER_BIT);
 
   textures_initialized_ = true;
 }
 
 void ApplyFramebufferAttachmentCMAAINTELResourceManager::ReleaseTextures() {
   if (textures_initialized_) {
-    glDeleteFramebuffersEXT(1, &cmaa_framebuffer_);
-    glDeleteTextures(1, &rgba8_texture_);
-    glDeleteTextures(1, &edges0_texture_);
-    glDeleteTextures(1, &edges1_texture_);
-    glDeleteTextures(1, &mini4_edge_texture_);
-    glDeleteTextures(1, &mini4_edge_depth_texture_);
-    glDeleteTextures(1, &working_color_texture_);
+    vendorDeleteFramebuffersEXT(1, &cmaa_framebuffer_);
+    vendorDeleteTextures(1, &rgba8_texture_);
+    vendorDeleteTextures(1, &edges0_texture_);
+    vendorDeleteTextures(1, &edges1_texture_);
+    vendorDeleteTextures(1, &mini4_edge_texture_);
+    vendorDeleteTextures(1, &mini4_edge_depth_texture_);
+    vendorDeleteTextures(1, &working_color_texture_);
   }
   textures_initialized_ = false;
 }
@@ -581,31 +582,31 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateProgram(
     const char* defines,
     const char* vs_source,
     const char* fs_source) {
-  GLuint program = glCreateProgram();
+  GLuint program = vendorCreateProgram();
 
   GLuint vs = CreateShader(GL_VERTEX_SHADER, defines, vs_source);
   GLuint fs = CreateShader(GL_FRAGMENT_SHADER, defines, fs_source);
 
-  glAttachShader(program, vs);
-  glDeleteShader(vs);
-  glAttachShader(program, fs);
-  glDeleteShader(fs);
+  vendorAttachShader(program, vs);
+  vendorDeleteShader(vs);
+  vendorAttachShader(program, fs);
+  vendorDeleteShader(fs);
 
-  glLinkProgram(program);
+  vendorLinkProgram(program);
   GLint link_status;
-  glGetProgramiv(program, GL_LINK_STATUS, &link_status);
+  vendorGetProgramiv(program, GL_LINK_STATUS, &link_status);
 
   if (link_status == 0) {
 #if DCHECK_IS_ON()
     GLint info_log_length;
-    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length);
+    vendorGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length);
     std::vector<GLchar> info_log(info_log_length);
-    glGetProgramInfoLog(program, static_cast<GLsizei>(info_log.size()), NULL,
+    vendorGetProgramInfoLog(program, static_cast<GLsizei>(info_log.size()), NULL,
                         &info_log[0]);
     DLOG(ERROR) << "ApplyFramebufferAttachmentCMAAINTEL: "
                 << "program link failed: " << &info_log[0];
 #endif
-    glDeleteProgram(program);
+    vendorDeleteProgram(program);
     program = 0;
   }
 
@@ -616,7 +617,7 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateShader(
     GLenum type,
     const char* defines,
     const char* source) {
-  GLuint shader = glCreateShader(type);
+  GLuint shader = vendorCreateShader(type);
 
   const char header_es31[] =
       "#version 310 es                                                      \n";
@@ -639,18 +640,18 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateShader(
 
   std::string header_str = header.str();
   const char* source_array[4] = {header_str.c_str(), defines, "\n", source};
-  glShaderSource(shader, 4, source_array, NULL);
+  vendorShaderSource(shader, 4, source_array, NULL);
 
-  glCompileShader(shader);
+  vendorCompileShader(shader);
 
   GLint compile_result;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_result);
+  vendorGetShaderiv(shader, GL_COMPILE_STATUS, &compile_result);
   if (compile_result == 0) {
 #if DCHECK_IS_ON()
     GLint info_log_length;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_length);
+    vendorGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_length);
     std::vector<GLchar> info_log(info_log_length);
-    glGetShaderInfoLog(shader, static_cast<GLsizei>(info_log.size()), NULL,
+    vendorGetShaderInfoLog(shader, static_cast<GLsizei>(info_log.size()), NULL,
                        &info_log[0]);
     DLOG(ERROR) << "ApplyFramebufferAttachmentCMAAINTEL: "
                 << "shader compilation failed: "
@@ -660,7 +661,7 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateShader(
                                                       : "UNKNOWN_SHADER"))
                 << " shader compilation failed: " << &info_log[0];
 #endif
-    glDeleteShader(shader);
+    vendorDeleteShader(shader);
     shader = 0;
   }
 

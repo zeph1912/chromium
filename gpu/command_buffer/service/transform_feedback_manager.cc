@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/transform_feedback_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include "gpu/command_buffer/service/buffer_manager.h"
 #include "ui/gl/gl_version_info.h"
@@ -30,21 +31,21 @@ TransformFeedback::TransformFeedback(TransformFeedbackManager* manager,
 TransformFeedback::~TransformFeedback() {
   if (!manager_->lost_context()) {
     if (active_)
-      glEndTransformFeedback();
-    glDeleteTransformFeedbacks(1, &service_id_);
+      vendorEndTransformFeedback();
+    vendorDeleteTransformFeedbacks(1, &service_id_);
   }
 }
 
 void TransformFeedback::DoBindTransformFeedback(GLenum target) {
   DCHECK_LT(0u, service_id_);
-  glBindTransformFeedback(target, service_id_);
+  vendorBindTransformFeedback(target, service_id_);
   has_been_bound_ = true;
   OnBindHost(target);
   if (active_ && !paused_) {
     // This could only happen during virtual context switching.
     // Otherwise the validation should generate a GL error without calling
     // into this function.
-    glResumeTransformFeedback();
+    vendorResumeTransformFeedback();
   }
 }
 
@@ -53,27 +54,27 @@ void TransformFeedback::DoBeginTransformFeedback(GLenum primitive_mode) {
   DCHECK(primitive_mode == GL_POINTS ||
          primitive_mode == GL_LINES ||
          primitive_mode == GL_TRIANGLES);
-  glBeginTransformFeedback(primitive_mode);
+  vendorBeginTransformFeedback(primitive_mode);
   active_ = true;
   primitive_mode_ = primitive_mode;
 }
 
 void TransformFeedback::DoEndTransformFeedback() {
   DCHECK(active_);
-  glEndTransformFeedback();
+  vendorEndTransformFeedback();
   active_ = false;
   paused_ = false;
 }
 
 void TransformFeedback::DoPauseTransformFeedback() {
   DCHECK(active_ && !paused_);
-  glPauseTransformFeedback();
+  vendorPauseTransformFeedback();
   paused_ = true;
 }
 
 void TransformFeedback::DoResumeTransformFeedback() {
   DCHECK(active_ && paused_);
-  glResumeTransformFeedback();
+  vendorResumeTransformFeedback();
   paused_ = false;
 }
 

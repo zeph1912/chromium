@@ -4,6 +4,7 @@
 
 #ifndef GPU_COMMAND_BUFFER_SERVICE_VERTEX_ATTRIB_MANAGER_H_
 #define GPU_COMMAND_BUFFER_SERVICE_VERTEX_ATTRIB_MANAGER_H_
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -224,9 +225,9 @@ class GPU_EXPORT VertexAttribManager :
     if (enable != attrib.enabled_in_driver_) {
       attrib.enabled_in_driver_ = enable;
       if (enable) {
-        glEnableVertexAttribArray(index);
+        vendorEnableVertexAttribArray(index);
       } else {
-        glDisableVertexAttribArray(index);
+        vendorDisableVertexAttribArray(index);
       }
     }
   }

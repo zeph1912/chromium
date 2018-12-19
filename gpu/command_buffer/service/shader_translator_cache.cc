@@ -39,15 +39,11 @@ scoped_refptr<ShaderTranslator> ShaderTranslatorCache::GetTranslator(
                                     shader_output_language,
                                     driver_bug_workarounds);
 
-  Cache::iterator it = cache_.find(params);
-  if (it != cache_.end())
-    return it->second;
 
   ShaderTranslator* translator = new ShaderTranslator();
   if (translator->Init(shader_type, shader_spec, resources,
                        shader_output_language, driver_bug_workarounds,
-                       gpu_preferences_.gl_shader_interm_output)) {
-    cache_[params] = translator;
+                       /*gpu_preferences_.gl_shader_interm_output*/false)) {
     translator->AddDestructionObserver(this);
     return translator;
   } else {

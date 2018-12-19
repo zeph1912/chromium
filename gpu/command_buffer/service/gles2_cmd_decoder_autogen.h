@@ -11,6 +11,7 @@
 // It is included by gles2_cmd_decoder.cc
 #ifndef GPU_COMMAND_BUFFER_SERVICE_GLES2_CMD_DECODER_AUTOGEN_H_
 #define GPU_COMMAND_BUFFER_SERVICE_GLES2_CMD_DECODER_AUTOGEN_H_
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 error::Error GLES2DecoderImpl::HandleActiveTexture(
     uint32_t immediate_data_size,
@@ -493,7 +494,7 @@ error::Error GLES2DecoderImpl::HandleClearDepthf(
   GLclampf depth = static_cast<GLclampf>(c.depth);
   if (state_.depth_clear != depth) {
     state_.depth_clear = depth;
-    glClearDepth(depth);
+    vendorClearDepth(depth);
   }
   return error::kNoError;
 }
@@ -5026,7 +5027,7 @@ error::Error GLES2DecoderImpl::HandlePathStencilFuncCHROMIUM(
     state_.stencil_path_func = func;
     state_.stencil_path_ref = ref;
     state_.stencil_path_mask = mask;
-    glPathStencilFuncNV(func, ref, mask);
+    vendorPathStencilFuncNV(func, ref, mask);
   }
   return error::kNoError;
 }
@@ -5049,7 +5050,7 @@ error::Error GLES2DecoderImpl::HandleCoverageModulationCHROMIUM(
   }
   if (state_.coverage_modulation != components) {
     state_.coverage_modulation = components;
-    glCoverageModulationNV(components);
+    vendorCoverageModulationNV(components);
   }
   return error::kNoError;
 }

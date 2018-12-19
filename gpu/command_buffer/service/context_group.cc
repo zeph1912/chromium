@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/context_group.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -26,6 +27,9 @@
 #include "gpu/command_buffer/service/shader_manager.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "gpu/command_buffer/service/transfer_buffer_manager.h"
+#include "gpu/command_buffer/service/milko_prints.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
+
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_version_info.h"
 
@@ -36,7 +40,7 @@ namespace {
 
 void GetIntegerv(GLenum pname, uint32_t* var) {
   GLint value = 0;
-  glGetIntegerv(pname, &value);
+  vendorGetIntegerv(pname, &value);
   *var = value;
 }
 
@@ -150,16 +154,6 @@ gpu::ContextResult ContextGroup::Initialize(
     default:
       break;
   }
-  if (HaveContexts()) {
-    if (context_type != feature_info_->context_type()) {
-      LOG(ERROR) << "ContextResult::kFatalFailure: the type of "
-                    "the context does not fit with the group.";
-      return gpu::ContextResult::kFatalFailure;
-    }
-    // If we've already initialized the group just add the context.
-    decoders_.push_back(decoder->AsWeakPtr());
-    return gpu::ContextResult::kSuccess;
-  }
 
   DisallowedFeatures adjusted_disallowed_features =
       AdjustDisallowedFeatures(context_type, disallowed_features);
@@ -171,23 +165,16 @@ gpu::ContextResult ContextGroup::Initialize(
   if (!QueryGLFeature(
       GL_MAX_RENDERBUFFER_SIZE, kMinRenderbufferSize,
       &max_renderbuffer_size)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "maximum renderbuffer size too small ("
-               << max_renderbuffer_size << ", should be "
-               << kMinRenderbufferSize << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
   GLint max_samples = 0;
   if (feature_info_->feature_flags().chromium_framebuffer_multisample ||
       feature_info_->feature_flags().multisampled_render_to_texture) {
     if (feature_info_->feature_flags()
             .use_img_for_multisampled_render_to_texture) {
-      glGetIntegerv(GL_MAX_SAMPLES_IMG, &max_samples);
+      vendorGetIntegerv(GL_MAX_SAMPLES_IMG, &max_samples);
     } else {
-      glGetIntegerv(GL_MAX_SAMPLES, &max_samples);
+      vendorGetIntegerv(GL_MAX_SAMPLES, &max_samples);
     }
   }
 
@@ -216,28 +203,14 @@ gpu::ContextResult ContextGroup::Initialize(
     if (!QueryGLFeatureU(GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
                          kMinTransformFeedbackSeparateAttribs,
                          &max_transform_feedback_separate_attribs_)) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "maximum transform feedback separate attribs is too small ("
-                 << max_transform_feedback_separate_attribs_ << ", should be "
-                 << kMinTransformFeedbackSeparateAttribs << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
     }
 
     const GLint kMinUniformBufferBindings = 24;
     if (!QueryGLFeatureU(GL_MAX_UNIFORM_BUFFER_BINDINGS,
                          kMinUniformBufferBindings,
                          &max_uniform_buffer_bindings_)) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "maximum uniform buffer bindings is too small ("
-                 << max_uniform_buffer_bindings_ << ", should be "
-                 << kMinUniformBufferBindings << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+      return gpu::ContextResult::kFatalFailure;
     }
 
     // TODO(zmo): Should we check max UNIFORM_BUFFER_OFFSET_ALIGNMENT is 256?
@@ -258,26 +231,15 @@ gpu::ContextResult ContextGroup::Initialize(
   if (!QueryGLFeatureU(
       GL_MAX_VERTEX_ATTRIBS, kGLES2RequiredMinimumVertexAttribs,
       &max_vertex_attribs_)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "too few vertex attributes supported (" << max_vertex_attribs_
-               << ", should be " << kGLES2RequiredMinimumVertexAttribs << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
 
   const GLuint kGLES2RequiredMinimumTextureUnits = 8u;
   if (!QueryGLFeatureU(
       GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, kGLES2RequiredMinimumTextureUnits,
       &max_texture_units_)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "too few texture units supported (" << max_texture_units_
-               << ", should be " << kGLES2RequiredMinimumTextureUnits << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
+
   }
 
   GLint max_texture_size = 0;
@@ -294,60 +256,26 @@ gpu::ContextResult ContextGroup::Initialize(
 
   if (!QueryGLFeature(GL_MAX_TEXTURE_SIZE, kMinTextureSize,
                       &max_texture_size)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "maximum 2d texture size is too small (" << max_texture_size
-               << ", should be " << kMinTextureSize << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
   if (!QueryGLFeature(GL_MAX_CUBE_MAP_TEXTURE_SIZE, kMinCubeMapSize,
                       &max_cube_map_texture_size)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "maximum cube texture size is too small ("
-               << max_cube_map_texture_size << ", should be " << kMinCubeMapSize
-               << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
   if (feature_info_->gl_version_info().is_es3_capable &&
       !QueryGLFeature(GL_MAX_3D_TEXTURE_SIZE, kMin3DTextureSize,
                       &max_3d_texture_size)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "maximum 3d texture size is too small ("
-               << max_3d_texture_size << ", should be " << kMin3DTextureSize
-               << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
   if (feature_info_->gl_version_info().is_es3_capable &&
       !QueryGLFeature(GL_MAX_ARRAY_TEXTURE_LAYERS, kMinArrayTextureLayers,
                       &max_array_texture_layers)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "maximum array texture layers is too small ("
-               << max_array_texture_layers << ", should be "
-               << kMinArrayTextureLayers << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
   if (feature_info_->feature_flags().arb_texture_rectangle &&
       !QueryGLFeature(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB,
                       kMinRectangleTextureSize, &max_rectangle_texture_size)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "maximum rectangle texture size is too small ("
-               << max_rectangle_texture_size << ", should be "
-               << kMinRectangleTextureSize << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
 
   if (feature_info_->workarounds().max_texture_size) {
@@ -369,26 +297,12 @@ gpu::ContextResult ContextGroup::Initialize(
   const GLint kMinVertexTextureImageUnits = 0;
   if (!QueryGLFeatureU(GL_MAX_TEXTURE_IMAGE_UNITS, kMinTextureImageUnits,
                        &max_texture_image_units_)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "too few texture image units supported ("
-               << max_texture_image_units_ << ", should be "
-               << kMinTextureImageUnits << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
   if (!QueryGLFeatureU(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS,
                        kMinVertexTextureImageUnits,
                        &max_vertex_texture_image_units_)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "too few vertex texture image units supported ("
-               << max_vertex_texture_image_units_ << ", should be "
-               << kMinTextureImageUnits << ").";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
 
   if (feature_info_->gl_version_info().BehavesLikeGLES()) {
@@ -414,12 +328,7 @@ gpu::ContextResult ContextGroup::Initialize(
       !CheckGLFeatureU(kMinVaryingVectors, &max_varying_vectors_) ||
       !CheckGLFeatureU(
       kMinVertexUniformVectors, &max_vertex_uniform_vectors_)) {
-    bool was_lost = decoder->CheckResetStatus();
-    LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                            : "ContextResult::kFatalFailure: ")
-               << "too few uniforms or varyings supported.";
-    return was_lost ? gpu::ContextResult::kTransientFailure
-                    : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
   }
 
   // Some shaders in Skia need more than the min available vertex and
@@ -453,64 +362,29 @@ gpu::ContextResult ContextGroup::Initialize(
     if (!QueryGLFeatureU(GL_MAX_VERTEX_OUTPUT_COMPONENTS,
                          kMinVertexOutputComponents,
                          &max_vertex_output_components_)) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "maximum vertex output components is too small ("
-                 << max_vertex_output_components_ << ", should be "
-                 << kMinVertexOutputComponents << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
     }
     if (!QueryGLFeatureU(GL_MAX_FRAGMENT_INPUT_COMPONENTS,
                          kMinFragmentInputComponents,
                          &max_fragment_input_components_)) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "maximum fragment input components is too small ("
-                 << max_fragment_input_components_ << ", should be "
-                 << kMinFragmentInputComponents << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
     }
     if (!QueryGLFeature(GL_MAX_PROGRAM_TEXEL_OFFSET, kMin_MaxProgramTexelOffset,
                         &max_program_texel_offset_)) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "maximum program texel offset is too small ("
-                 << max_program_texel_offset_ << ", should be "
-                 << kMin_MaxProgramTexelOffset << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
     }
-    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &min_program_texel_offset_);
+    vendorGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &min_program_texel_offset_);
     if (enforce_gl_minimums_) {
       min_program_texel_offset_ =
           std::max(min_program_texel_offset_, kMax_MinProgramTexelOffset);
     }
     if (min_program_texel_offset_ > kMax_MinProgramTexelOffset) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "minimum program texel offset is too big ("
-                 << min_program_texel_offset_ << ", should be "
-                 << kMax_MinProgramTexelOffset << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
     }
 
     const GLint kES3MinCubeMapSize = 2048;
     if (max_cube_map_texture_size < kES3MinCubeMapSize) {
-      bool was_lost = decoder->CheckResetStatus();
-      LOG(ERROR) << (was_lost ? "ContextResult::kTransientFailure: "
-                              : "ContextResult::kFatalFailure: ")
-                 << "maximum cube texture size is too small ("
-                 << max_cube_map_texture_size << ", should be "
-                 << kES3MinCubeMapSize << ").";
-      return was_lost ? gpu::ContextResult::kTransientFailure
-                      : gpu::ContextResult::kFatalFailure;
+    return gpu::ContextResult::kFatalFailure;
     }
   }
 
@@ -523,7 +397,6 @@ gpu::ContextResult ContextGroup::Initialize(
 
   texture_manager_->Initialize();
 
-  decoders_.push_back(decoder->AsWeakPtr());
   return gpu::ContextResult::kSuccess;
 }
 
@@ -618,10 +491,7 @@ void ContextGroup::Destroy(GLES2Decoder* decoder, bool have_context) {
   memory_tracker_ = NULL;
 
   if (passthrough_resources_) {
-    gl::GLApi* api = have_context ? gl::g_current_gl_context : nullptr;
-    passthrough_resources_->Destroy(api);
-    passthrough_resources_.reset();
-    ReportProgress();
+    abort();
   }
 }
 
@@ -672,7 +542,7 @@ bool ContextGroup::CheckGLFeatureU(GLint min_required, uint32_t* v) {
 bool ContextGroup::QueryGLFeature(
     GLenum pname, GLint min_required, GLint* v) {
   GLint value = 0;
-  glGetIntegerv(pname, &value);
+  vendorGetIntegerv(pname, &value);
   *v = value;
   return CheckGLFeature(min_required, v);
 }

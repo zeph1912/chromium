@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/buffer_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stdint.h>
 
@@ -21,6 +22,7 @@
 #include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/command_buffer/service/memory_tracking.h"
 #include "gpu/command_buffer/service/transform_feedback_manager.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_version_info.h"
 #include "ui/gl/trace_util.h"
@@ -140,7 +142,7 @@ Buffer::~Buffer() {
   if (manager_) {
     if (!manager_->lost_context_) {
       GLuint id = service_id();
-      glDeleteBuffersARB(1, &id);
+      vendorDeleteBuffersARB(1, &id);
     }
     RemoveMappedRange();
     manager_->StopTracking(this);
@@ -453,14 +455,14 @@ void BufferManager::DoBufferData(
   ERRORSTATE_COPY_REAL_GL_ERRORS_TO_WRAPPER(error_state, "glBufferData");
   if (IsUsageClientSideArray(usage)) {
     GLsizei empty_size = UseNonZeroSizeForClientSideArrayBuffer() ? 1 : 0;
-    glBufferData(target, empty_size, nullptr, usage);
+    vendorBufferData(target, empty_size, nullptr, usage);
   } else {
     if (data || !size) {
-      glBufferData(target, size, data, usage);
+      vendorBufferData(target, size, data, usage);
     } else {
       std::unique_ptr<char[]> zero(new char[size]);
       memset(zero.get(), 0, size);
-      glBufferData(target, size, zero.get(), usage);
+      vendorBufferData(target, size, zero.get(), usage);
     }
   }
   GLenum error = ERRORSTATE_PEEK_GL_ERROR(error_state, "glBufferData");
@@ -493,7 +495,7 @@ void BufferManager::DoBufferSubData(
   buffer->SetRange(offset, size, data);
 
   if (!buffer->IsClientSideArray()) {
-    glBufferSubData(target, offset, size, data);
+    vendorBufferSubData(target, offset, size, data);
   }
 }
 
@@ -550,7 +552,7 @@ void BufferManager::DoCopyBufferSubData(
     writebuffer->SetRange(writeoffset, size, data);
   }
 
-  glCopyBufferSubData(readtarget, writetarget, readoffset, writeoffset, size);
+  vendorCopyBufferSubData(readtarget, writetarget, readoffset, writeoffset, size);
 }
 
 void BufferManager::ValidateAndDoGetBufferParameteri64v(
@@ -701,7 +703,7 @@ void BufferManager::SetPrimitiveRestartFixedIndexIfNecessary(GLenum type) {
       break;
   }
   if (primitive_restart_fixed_index_ != index) {
-    glPrimitiveRestartIndex(index);
+    vendorPrimitiveRestartIndex(index);
     primitive_restart_fixed_index_ = index;
   }
 }

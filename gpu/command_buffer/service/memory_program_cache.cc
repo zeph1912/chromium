@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/memory_program_cache.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 
@@ -218,9 +219,9 @@ void RunShaderCallback(GLES2DecoderClient* client,
 }
 
 bool ProgramBinaryExtensionsAvailable() {
-  return gl::g_current_gl_driver &&
-         (gl::g_current_gl_driver->ext.b_GL_ARB_get_program_binary ||
-          gl::g_current_gl_driver->ext.b_GL_OES_get_program_binary);
+  return driver_ &&
+         (driver_->ext.b_GL_ARB_get_program_binary ||
+          driver_->ext.b_GL_OES_get_program_binary);
 }
 
 // Returns an empty vector if compression fails.
@@ -354,12 +355,12 @@ ProgramCache::ProgramLoadResult MemoryProgramCache::LoadLinkedProgram(
   {
     GpuProcessActivityFlags::ScopedSetFlag scoped_set_flag(
         activity_flags_, ActivityFlagsBase::FLAG_LOADING_PROGRAM_BINARY);
-    glProgramBinary(program, value->format(),
+    vendorProgramBinary(program, value->format(),
                     static_cast<const GLvoid*>(decoded.data()), decoded.size());
   }
 
   GLint success = 0;
-  glGetProgramiv(program, GL_LINK_STATUS, &success);
+  vendorGetProgramiv(program, GL_LINK_STATUS, &success);
   if (success == GL_FALSE) {
     return PROGRAM_LOAD_FAILURE;
   }
@@ -409,12 +410,12 @@ void MemoryProgramCache::SaveLinkedProgram(
   }
   GLenum format;
   GLsizei length = 0;
-  glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
+  vendorGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
   if (length == 0 || static_cast<unsigned int>(length) > max_size_bytes()) {
     return;
   }
   std::vector<uint8_t> binary(length);
-  glGetProgramBinary(program, length, NULL, &format,
+  vendorGetProgramBinary(program, length, NULL, &format,
                      reinterpret_cast<char*>(binary.data()));
 
   if (compress_program_binaries_) {

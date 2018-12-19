@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/gles2_cmd_copy_texture_chromium.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 
@@ -472,16 +473,16 @@ GLenum getIntermediateFormat(GLenum format) {
 }
 
 void CompileShader(GLuint shader, const char* shader_source) {
-  glShaderSource(shader, 1, &shader_source, 0);
-  glCompileShader(shader);
+  vendorShaderSource(shader, 1, &shader_source, 0);
+  vendorCompileShader(shader);
 #if DCHECK_IS_ON()
   {
     GLint compile_status;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
+    vendorGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
     if (GL_TRUE != compile_status) {
       char buffer[1024];
       GLsizei length = 0;
-      glGetShaderInfoLog(shader, sizeof(buffer), &length, buffer);
+      vendorGetShaderInfoLog(shader, sizeof(buffer), &length, buffer);
       std::string log(buffer, length);
       DLOG(ERROR) << "CopyTextureCHROMIUM: shader compilation failure: " << log;
     }
@@ -491,7 +492,7 @@ void CompileShader(GLuint shader, const char* shader_source) {
 
 void DeleteShader(GLuint shader) {
   if (shader)
-    glDeleteShader(shader);
+    vendorDeleteShader(shader);
 }
 
 bool BindFramebufferTexture2D(GLenum target,
@@ -499,22 +500,22 @@ bool BindFramebufferTexture2D(GLenum target,
                               GLint level,
                               GLuint framebuffer) {
   DCHECK(target == GL_TEXTURE_2D || target == GL_TEXTURE_RECTANGLE_ARB);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(target, texture_id);
+  vendorActiveTexture(GL_TEXTURE0);
+  vendorBindTexture(target, texture_id);
   // NVidia drivers require texture settings to be a certain way
   // or they won't report FRAMEBUFFER_COMPLETE.
   if (level > 0)
-    glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, level);
-  glTexParameterf(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameterf(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer);
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target,
+    vendorTexParameteri(target, GL_TEXTURE_BASE_LEVEL, level);
+  vendorTexParameterf(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  vendorTexParameterf(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  vendorTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  vendorTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer);
+  vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target,
                             texture_id, level);
 
 #ifndef NDEBUG
-  GLenum fb_status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
+  GLenum fb_status = vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
   if (GL_FRAMEBUFFER_COMPLETE != fb_status) {
     DLOG(ERROR) << "CopyTextureCHROMIUM: Incomplete framebuffer.";
     return false;
@@ -545,11 +546,11 @@ void DoCopyTexImage2D(
   DCHECK(source_level == 0 || decoder->GetFeatureInfo()->IsES3Capable());
   if (BindFramebufferTexture2D(source_target, source_id, source_level,
                                framebuffer)) {
-    glBindTexture(dest_binding_target, dest_id);
-    glTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(dest_binding_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(dest_binding_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorBindTexture(dest_binding_target, dest_id);
+    vendorTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    vendorTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    vendorTexParameteri(dest_binding_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(dest_binding_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     // The blitter will only be non-null if we're on the desktop core
     // profile. Use it only if it's needed.
@@ -564,7 +565,7 @@ void DoCopyTexImage2D(
           dest_level, dest_internal_format, 0 /* x */, 0 /* y */, width, height,
           framebuffer, source_internal_format);
     } else {
-      glCopyTexImage2D(dest_target, dest_level, dest_internal_format, 0 /* x */,
+      vendorCopyTexImage2D(dest_target, dest_level, dest_internal_format, 0 /* x */,
                        0 /* y */, width, height, 0 /* border */);
     }
   }
@@ -603,11 +604,11 @@ void DoCopyTexSubImage2D(
   DCHECK(source_level == 0 || decoder->GetFeatureInfo()->IsES3Capable());
   if (BindFramebufferTexture2D(source_target, source_id, source_level,
                                framebuffer)) {
-    glBindTexture(dest_binding_target, dest_id);
-    glTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(dest_binding_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(dest_binding_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorBindTexture(dest_binding_target, dest_id);
+    vendorTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    vendorTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    vendorTexParameteri(dest_binding_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(dest_binding_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     // The blitter will only be non-null if we're on the desktop core
     // profile. Use it only if it's needed.
@@ -622,7 +623,7 @@ void DoCopyTexSubImage2D(
           dest_level, xoffset, yoffset, 0 /* zoffset */, source_x, source_y,
           source_width, source_height, framebuffer, source_internal_format);
     } else {
-      glCopyTexSubImage2D(dest_target, dest_level, xoffset, yoffset, source_x,
+      vendorCopyTexSubImage2D(dest_target, dest_level, xoffset, yoffset, source_x,
                           source_y, source_width, source_height);
     }
   }
@@ -678,11 +679,11 @@ void prepareUnpackBuffer(GLuint buffer[2],
       (format == GL_RGBA && type == GL_UNSIGNED_BYTE)) {
     uint32_t bytes_per_group =
         gpu::gles2::GLES2Util::ComputeImageGroupSize(format, type);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer[0]);
-    glBufferData(GL_PIXEL_PACK_BUFFER, pixel_num * bytes_per_group, 0,
+    vendorBindBuffer(GL_PIXEL_PACK_BUFFER, buffer[0]);
+    vendorBufferData(GL_PIXEL_PACK_BUFFER, pixel_num * bytes_per_group, 0,
                  GL_STATIC_READ);
-    glReadPixels(0, 0, width, height, format, type, 0);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[0]);
+    vendorReadPixels(0, 0, width, height, format, type, 0);
+    vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[0]);
     return;
   }
 
@@ -697,46 +698,46 @@ void prepareUnpackBuffer(GLuint buffer[2],
     // on Nexus 5 but not Nexus 4. Read pixels to client memory, then upload to
     // pixel unpack buffer with glBufferData.
     std::unique_ptr<uint8_t[]> pixels(new uint8_t[width * height * 4]);
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.get());
+    vendorReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.get());
     std::unique_ptr<float[]> data(new float[width * height * 3]);
     convertToRGBFloat(pixels.get(), data.get(), pixel_num);
     bytes_per_group =
         gpu::gles2::GLES2Util::ComputeImageGroupSize(format, type);
     buf_size = pixel_num * bytes_per_group;
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[1]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, buf_size, data.get(), GL_STATIC_DRAW);
+    vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[1]);
+    vendorBufferData(GL_PIXEL_UNPACK_BUFFER, buf_size, data.get(), GL_STATIC_DRAW);
 #else
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer[0]);
-    glBufferData(GL_PIXEL_PACK_BUFFER, buf_size, 0, GL_STATIC_READ);
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    vendorBindBuffer(GL_PIXEL_PACK_BUFFER, buffer[0]);
+    vendorBufferData(GL_PIXEL_PACK_BUFFER, buf_size, 0, GL_STATIC_READ);
+    vendorReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     void* pixels =
-        glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, buf_size, GL_MAP_READ_BIT);
+        vendorMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, buf_size, GL_MAP_READ_BIT);
 
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[1]);
+    vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[1]);
     bytes_per_group =
         gpu::gles2::GLES2Util::ComputeImageGroupSize(format, type);
     buf_size = pixel_num * bytes_per_group;
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, buf_size, 0, GL_STATIC_DRAW);
+    vendorBufferData(GL_PIXEL_UNPACK_BUFFER, buf_size, 0, GL_STATIC_DRAW);
     void* data =
-        glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, buf_size, GL_MAP_WRITE_BIT);
+        vendorMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, buf_size, GL_MAP_WRITE_BIT);
     convertToRGBFloat(static_cast<uint8_t*>(pixels), static_cast<float*>(data),
                       pixel_num);
-    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+    vendorUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    vendorUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 #endif
     return;
   }
 
   if (format == GL_RGB && type == GL_UNSIGNED_BYTE) {
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer[0]);
-    glBufferData(GL_PIXEL_PACK_BUFFER, buf_size, 0, GL_DYNAMIC_DRAW);
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-    void* pixels = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, buf_size,
+    vendorBindBuffer(GL_PIXEL_PACK_BUFFER, buffer[0]);
+    vendorBufferData(GL_PIXEL_PACK_BUFFER, buf_size, 0, GL_DYNAMIC_DRAW);
+    vendorReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    void* pixels = vendorMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, buf_size,
                                     GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
     void* data = pixels;
     convertToRGB((uint8_t*)pixels, (uint8_t*)data, pixel_num);
-    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[0]);
+    vendorUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer[0]);
     return;
   }
 
@@ -770,11 +771,11 @@ void DoReadbackAndTexImage(TexImageCommandType command_type,
   DCHECK(source_level == 0 || decoder->GetFeatureInfo()->IsES3Capable());
   if (BindFramebufferTexture2D(source_target, source_id, source_level,
                                framebuffer)) {
-    glBindTexture(dest_binding_target, dest_id);
-    glTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(dest_binding_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(dest_binding_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorBindTexture(dest_binding_target, dest_id);
+    vendorTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    vendorTexParameterf(dest_binding_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    vendorTexParameteri(dest_binding_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(dest_binding_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     GLenum format = GL_RGBA;
     GLenum type = GL_UNSIGNED_BYTE;
@@ -803,17 +804,17 @@ void DoReadbackAndTexImage(TexImageCommandType command_type,
 
     uint32_t buffer_num = is_es && format == GL_RGB && type == GL_FLOAT ? 2 : 1;
     GLuint buffer[2] = {0u};
-    glGenBuffersARB(buffer_num, buffer);
+    vendorGenBuffersARB(buffer_num, buffer);
     prepareUnpackBuffer(buffer, is_es, format, type, width, height);
 
     if (command_type == kTexImage) {
-      glTexImage2D(dest_target, dest_level, dest_internal_format, width, height,
+      vendorTexImage2D(dest_target, dest_level, dest_internal_format, width, height,
                    0, format, type, 0);
     } else {
-      glTexSubImage2D(dest_target, dest_level, xoffset, yoffset, width, height,
+      vendorTexSubImage2D(dest_target, dest_level, xoffset, yoffset, width, height,
                       format, type, 0);
     }
-    glDeleteBuffersARB(buffer_num, buffer);
+    vendorDeleteBuffersARB(buffer_num, buffer);
   }
 
   decoder->RestoreTextureState(source_id);
@@ -859,25 +860,25 @@ void CopyTextureCHROMIUMResourceManager::Initialize(
       feature_flags.nv_egl_stream_consumer_external;
 
   if (feature_flags.native_vertex_array_object) {
-    glGenVertexArraysOES(1, &vertex_array_object_id_);
-    glBindVertexArrayOES(vertex_array_object_id_);
+    vendorGenVertexArraysOES(1, &vertex_array_object_id_);
+    vendorBindVertexArrayOES(vertex_array_object_id_);
   }
 
   // Initialize all of the GPU resources required to perform the copy.
-  glGenBuffersARB(1, &buffer_id_);
-  glBindBuffer(GL_ARRAY_BUFFER, buffer_id_);
+  vendorGenBuffersARB(1, &buffer_id_);
+  vendorBindBuffer(GL_ARRAY_BUFFER, buffer_id_);
   const GLfloat kQuadVertices[] = {-1.0f, -1.0f,
                                     1.0f, -1.0f,
                                     1.0f,  1.0f,
                                    -1.0f,  1.0f};
-  glBufferData(
+  vendorBufferData(
       GL_ARRAY_BUFFER, sizeof(kQuadVertices), kQuadVertices, GL_STATIC_DRAW);
 
-  glGenFramebuffersEXT(1, &framebuffer_);
+  vendorGenFramebuffersEXT(1, &framebuffer_);
 
   if (vertex_array_object_id_) {
-    glEnableVertexAttribArray(kVertexPositionAttrib);
-    glVertexAttribPointer(kVertexPositionAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    vendorEnableVertexAttribArray(kVertexPositionAttrib);
+    vendorVertexAttribPointer(kVertexPositionAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
     decoder->RestoreAllAttributes();
   }
 
@@ -891,11 +892,11 @@ void CopyTextureCHROMIUMResourceManager::Destroy() {
     return;
 
   if (vertex_array_object_id_) {
-    glDeleteVertexArraysOES(1, &vertex_array_object_id_);
+    vendorDeleteVertexArraysOES(1, &vertex_array_object_id_);
     vertex_array_object_id_ = 0;
   }
 
-  glDeleteFramebuffersEXT(1, &framebuffer_);
+  vendorDeleteFramebuffersEXT(1, &framebuffer_);
   framebuffer_ = 0;
 
   std::for_each(
@@ -906,10 +907,10 @@ void CopyTextureCHROMIUMResourceManager::Destroy() {
   for (ProgramMap::const_iterator it = programs_.begin(); it != programs_.end();
        ++it) {
     const ProgramInfo& info = it->second;
-    glDeleteProgram(info.program);
+    vendorDeleteProgram(info.program);
   }
 
-  glDeleteBuffersARB(1, &buffer_id_);
+  vendorDeleteBuffersARB(1, &buffer_id_);
   buffer_id_ = 0;
 }
 
@@ -950,14 +951,14 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTexture(
             ? GL_RGBA
             : getIntermediateFormat(dest_internal_format);
     dest_target = GL_TEXTURE_2D;
-    glGenTextures(1, &intermediate_texture);
-    glBindTexture(dest_target, intermediate_texture);
+    vendorGenTextures(1, &intermediate_texture);
+    vendorBindTexture(dest_target, intermediate_texture);
     GLenum format = TextureManager::ExtractFormatFromStorageFormat(
         adjusted_internal_format);
     GLenum type =
         TextureManager::ExtractTypeFromStorageFormat(adjusted_internal_format);
 
-    glTexImage2D(dest_target, 0, adjusted_internal_format, width, height, 0,
+    vendorTexImage2D(dest_target, 0, adjusted_internal_format, width, height, 0,
                  format, type, nullptr);
     dest_texture = intermediate_texture;
     dest_level = 0;
@@ -983,7 +984,7 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTexture(
           original_dest_target, dest_id, original_dest_level,
           original_internal_format, 0, 0, width, height, framebuffer_);
     }
-    glDeleteTextures(1, &intermediate_texture);
+    vendorDeleteTextures(1, &intermediate_texture);
   }
 }
 
@@ -1034,14 +1035,14 @@ void CopyTextureCHROMIUMResourceManager::DoCopySubTexture(
             ? GL_RGBA
             : getIntermediateFormat(dest_internal_format);
     dest_target = GL_TEXTURE_2D;
-    glGenTextures(1, &intermediate_texture);
-    glBindTexture(dest_target, intermediate_texture);
+    vendorGenTextures(1, &intermediate_texture);
+    vendorBindTexture(dest_target, intermediate_texture);
     GLenum format = TextureManager::ExtractFormatFromStorageFormat(
         adjusted_internal_format);
     GLenum type =
         TextureManager::ExtractTypeFromStorageFormat(adjusted_internal_format);
 
-    glTexImage2D(dest_target, 0, adjusted_internal_format, width, height, 0,
+    vendorTexImage2D(dest_target, 0, adjusted_internal_format, width, height, 0,
                  format, type, nullptr);
     dest_texture = intermediate_texture;
     dest_level = 0;
@@ -1074,7 +1075,7 @@ void CopyTextureCHROMIUMResourceManager::DoCopySubTexture(
                             original_internal_format, xoffset, yoffset, width,
                             height, framebuffer_);
     }
-    glDeleteTextures(1, &intermediate_texture);
+    vendorDeleteTextures(1, &intermediate_texture);
   }
 }
 
@@ -1186,14 +1187,14 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTextureInternal(
       decoder->GetFeatureInfo()->gl_version_info();
 
   if (vertex_array_object_id_) {
-    glBindVertexArrayOES(vertex_array_object_id_);
+    vendorBindVertexArrayOES(vertex_array_object_id_);
   } else {
     if (!gl_version_info.is_desktop_core_profile) {
       decoder->ClearAllAttributes();
     }
-    glEnableVertexAttribArray(kVertexPositionAttrib);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer_id_);
-    glVertexAttribPointer(kVertexPositionAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    vendorEnableVertexAttribArray(kVertexPositionAttrib);
+    vendorBindBuffer(GL_ARRAY_BUFFER, buffer_id_);
+    vendorVertexAttribPointer(kVertexPositionAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
   }
 
   ShaderId vertex_shader_id = GetVertexShaderId(source_target);
@@ -1207,57 +1208,57 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTextureInternal(
   ProgramInfo* info = &programs_[key];
   // Create program if necessary.
   if (!info->program) {
-    info->program = glCreateProgram();
+    info->program = vendorCreateProgram();
     GLuint* vertex_shader = &vertex_shaders_[vertex_shader_id];
     if (!*vertex_shader) {
-      *vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+      *vertex_shader = vendorCreateShader(GL_VERTEX_SHADER);
       std::string source =
           GetVertexShaderSource(gl_version_info, source_target);
       CompileShader(*vertex_shader, source.c_str());
     }
-    glAttachShader(info->program, *vertex_shader);
+    vendorAttachShader(info->program, *vertex_shader);
     GLuint* fragment_shader = &fragment_shaders_[fragment_shader_id];
     if (!*fragment_shader) {
-      *fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+      *fragment_shader = vendorCreateShader(GL_FRAGMENT_SHADER);
       std::string source = GetFragmentShaderSource(
           gl_version_info, premultiply_alpha, unpremultiply_alpha,
           nv_egl_stream_consumer_external_, source_target, source_format,
           dest_format);
       CompileShader(*fragment_shader, source.c_str());
     }
-    glAttachShader(info->program, *fragment_shader);
-    glBindAttribLocation(info->program, kVertexPositionAttrib, "a_position");
-    glLinkProgram(info->program);
+    vendorAttachShader(info->program, *fragment_shader);
+    vendorBindAttribLocation(info->program, kVertexPositionAttrib, "a_position");
+    vendorLinkProgram(info->program);
 
 #if DCHECK_IS_ON()
     {
       GLint linked;
-      glGetProgramiv(info->program, GL_LINK_STATUS, &linked);
+      vendorGetProgramiv(info->program, GL_LINK_STATUS, &linked);
       if (!linked) {
         char buffer[1024];
         GLsizei length = 0;
-        glGetProgramInfoLog(info->program, sizeof(buffer), &length, buffer);
+        vendorGetProgramInfoLog(info->program, sizeof(buffer), &length, buffer);
         std::string log(buffer, length);
         DLOG(ERROR) << "CopyTextureCHROMIUM: program link failure: " << log;
       }
     }
 #endif
     info->vertex_dest_mult_handle =
-        glGetUniformLocation(info->program, "u_vertex_dest_mult");
+        vendorGetUniformLocation(info->program, "u_vertex_dest_mult");
     info->vertex_dest_add_handle =
-        glGetUniformLocation(info->program, "u_vertex_dest_add");
+        vendorGetUniformLocation(info->program, "u_vertex_dest_add");
     info->vertex_source_mult_handle =
-        glGetUniformLocation(info->program, "u_vertex_source_mult");
+        vendorGetUniformLocation(info->program, "u_vertex_source_mult");
     info->vertex_source_add_handle =
-        glGetUniformLocation(info->program, "u_vertex_source_add");
+        vendorGetUniformLocation(info->program, "u_vertex_source_add");
 
     info->tex_coord_transform_handle =
-        glGetUniformLocation(info->program, "u_tex_coord_transform");
-    info->sampler_handle = glGetUniformLocation(info->program, "u_sampler");
+        vendorGetUniformLocation(info->program, "u_tex_coord_transform");
+    info->sampler_handle = vendorGetUniformLocation(info->program, "u_sampler");
   }
-  glUseProgram(info->program);
+  vendorUseProgram(info->program);
 
-  glUniformMatrix4fv(info->tex_coord_transform_handle, 1, GL_FALSE,
+  vendorUniformMatrix4fv(info->tex_coord_transform_handle, 1, GL_FALSE,
                      transform_matrix);
 
   // Note: For simplicity, the calculations in this comment block use a single
@@ -1279,9 +1280,9 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTextureInternal(
   //       (xoffset + width) * 2 / dest_width) - 1]
   //  A = width / dest_width
   //  B = (xoffset * 2 + width - dest_width) / dest_width
-  glUniform2f(info->vertex_dest_mult_handle, width * 1.f / dest_width,
+  vendorUniform2f(info->vertex_dest_mult_handle, width * 1.f / dest_width,
               height * 1.f / dest_height);
-  glUniform2f(info->vertex_dest_add_handle,
+  vendorUniform2f(info->vertex_dest_add_handle,
               (xoffset * 2.f + width - dest_width) / dest_width,
               (yoffset * 2.f + height - dest_height) / dest_height);
 
@@ -1322,9 +1323,9 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTextureInternal(
   GLfloat m_x = source_target == GL_TEXTURE_RECTANGLE_ARB ? source_width : 1;
   GLfloat m_y = source_target == GL_TEXTURE_RECTANGLE_ARB ? source_height : 1;
   GLfloat sign_a = flip_y ? -1 : 1;
-  glUniform2f(info->vertex_source_mult_handle, width / 2.f * m_x / source_width,
+  vendorUniform2f(info->vertex_source_mult_handle, width / 2.f * m_x / source_width,
               height / 2.f * m_y / source_height * sign_a);
-  glUniform2f(info->vertex_source_add_handle,
+  vendorUniform2f(info->vertex_source_add_handle,
               (x + width / 2.f) * m_x / source_width,
               (y + height / 2.f) * m_y / source_height);
 
@@ -1334,46 +1335,46 @@ void CopyTextureCHROMIUMResourceManager::DoCopyTextureInternal(
 #ifndef NDEBUG
     // glValidateProgram of MACOSX validates FBO unlike other platforms, so
     // glValidateProgram must be called after FBO binding. crbug.com/463439
-    glValidateProgram(info->program);
+    vendorValidateProgram(info->program);
     GLint validation_status;
-    glGetProgramiv(info->program, GL_VALIDATE_STATUS, &validation_status);
+    vendorGetProgramiv(info->program, GL_VALIDATE_STATUS, &validation_status);
     if (GL_TRUE != validation_status) {
       DLOG(ERROR) << "CopyTextureCHROMIUM: Invalid shader.";
       return;
     }
 #endif
 
-    glUniform1i(info->sampler_handle, 0);
+    vendorUniform1i(info->sampler_handle, 0);
 
-    glBindTexture(source_target, source_id);
+    vendorBindTexture(source_target, source_id);
     DCHECK(source_level == 0 || decoder->GetFeatureInfo()->IsES3Capable());
     if (source_level > 0)
-      glTexParameteri(source_target, GL_TEXTURE_BASE_LEVEL, source_level);
-    glTexParameterf(source_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(source_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(source_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(source_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      vendorTexParameteri(source_target, GL_TEXTURE_BASE_LEVEL, source_level);
+    vendorTexParameterf(source_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    vendorTexParameterf(source_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    vendorTexParameteri(source_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    vendorTexParameteri(source_target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_CULL_FACE);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_BLEND);
+    vendorDisable(GL_DEPTH_TEST);
+    vendorDisable(GL_STENCIL_TEST);
+    vendorDisable(GL_CULL_FACE);
+    vendorColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    vendorDepthMask(GL_FALSE);
+    vendorDisable(GL_BLEND);
 
     bool need_scissor =
         xoffset || yoffset || width != dest_width || height != dest_height;
     if (need_scissor) {
-      glEnable(GL_SCISSOR_TEST);
-      glScissor(xoffset, yoffset, width, height);
+      vendorEnable(GL_SCISSOR_TEST);
+      vendorScissor(xoffset, yoffset, width, height);
     } else {
-      glDisable(GL_SCISSOR_TEST);
+      vendorDisable(GL_SCISSOR_TEST);
     }
     if (decoder->GetFeatureInfo()->feature_flags().ext_window_rectangles) {
-      glWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
+      vendorWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
     }
-    glViewport(0, 0, dest_width, dest_height);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    vendorViewport(0, 0, dest_width, dest_height);
+    vendorDrawArrays(GL_TRIANGLE_FAN, 0, 4);
   }
 
   decoder->RestoreAllAttributes();

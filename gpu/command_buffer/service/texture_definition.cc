@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/texture_definition.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stdint.h>
 
@@ -230,7 +231,7 @@ bool NativeImageBufferEGL::IsClient(gl::GLImage* client) {
 
 void NativeImageBufferEGL::BindToTexture(GLenum target) const {
   DCHECK(egl_image_ != EGL_NO_IMAGE_KHR);
-  glEGLImageTargetTexture2DOES(target, egl_image_);
+  vendorEGLImageTargetTexture2DOES(target, egl_image_);
   DCHECK_EQ(static_cast<EGLint>(EGL_SUCCESS), eglGetError());
   DCHECK_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
 }
@@ -363,7 +364,7 @@ TextureDefinition::~TextureDefinition() {
 
 Texture* TextureDefinition::CreateTexture() const {
   GLuint texture_id;
-  glGenTextures(1, &texture_id);
+  vendorGenTextures(1, &texture_id);
 
   Texture* texture(new Texture(texture_id));
   UpdateTextureInternal(texture);
@@ -373,10 +374,10 @@ Texture* TextureDefinition::CreateTexture() const {
 
 void TextureDefinition::UpdateTextureInternal(Texture* texture) const {
   gl::ScopedTextureBinder texture_binder(target_, texture->service_id());
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag_filter_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_s_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_t_);
+  vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter_);
+  vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag_filter_);
+  vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_s_);
+  vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_t_);
 
   if (image_buffer_.get()) {
     gl::GLImage* existing_image = texture->GetLevelImage(target_, 0);
@@ -419,15 +420,15 @@ void TextureDefinition::UpdateTexture(Texture* texture) const {
   GLuint old_service_id = 0u;
   if (image_buffer_.get() && g_avoid_egl_target_texture_reuse) {
     GLuint service_id = 0u;
-    glGenTextures(1, &service_id);
+    vendorGenTextures(1, &service_id);
     old_service_id = texture->service_id();
     texture->SetServiceId(service_id);
 
     DCHECK_EQ(static_cast<GLenum>(GL_TEXTURE_2D), target_);
     GLint bound_id = 0;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound_id);
+    vendorGetIntegerv(GL_TEXTURE_BINDING_2D, &bound_id);
     if (bound_id == static_cast<GLint>(old_service_id)) {
-      glBindTexture(target_, service_id);
+      vendorBindTexture(target_, service_id);
     }
     texture->SetLevelImage(target_, 0, NULL, Texture::UNBOUND);
   }
@@ -435,7 +436,7 @@ void TextureDefinition::UpdateTexture(Texture* texture) const {
   UpdateTextureInternal(texture);
 
   if (old_service_id) {
-    glDeleteTextures(1, &old_service_id);
+    vendorDeleteTextures(1, &old_service_id);
   }
 }
 

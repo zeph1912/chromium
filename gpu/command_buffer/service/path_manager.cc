@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/path_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <algorithm>
 
@@ -22,7 +23,7 @@ void CallDeletePaths(GLuint first_id, GLuint range) {
     else
       irange = static_cast<GLsizei>(range);
 
-    glDeletePathsNV(first_id, irange);
+    vendorDeletePathsNV(first_id, irange);
     range -= irange;
     first_id += irange;
   }

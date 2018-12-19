@@ -7,6 +7,7 @@
 
 #ifndef GPU_COMMAND_BUFFER_SERVICE_GL_UTILS_H_
 #define GPU_COMMAND_BUFFER_SERVICE_GL_UTILS_H_
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <vector>
 
@@ -20,7 +21,7 @@
 // #define GL_ERROR_DEBUGGING
 #ifdef GL_ERROR_DEBUGGING
 #define CHECK_GL_ERROR() do {                                           \
-    GLenum gl_error = glGetError();                                     \
+    GLenum gl_error = vendorGetError();                                     \
     LOG_IF(ERROR, gl_error != GL_NO_ERROR) << "GL Error :" << gl_error; \
   } while (0)
 #else  // GL_ERROR_DEBUGGING

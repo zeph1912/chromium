@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/program_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -31,6 +32,7 @@
 #include "gpu/command_buffer/service/program_cache.h"
 #include "gpu/command_buffer/service/progress_reporter.h"
 #include "gpu/command_buffer/service/shader_manager.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/gl/gl_version_info.h"
 
@@ -505,16 +507,16 @@ void Program::UpdateUniformBlockSizeInfo() {
   uniform_block_size_info_.clear();
 
   GLint num_uniform_blocks = 0;
-  glGetProgramiv(service_id_, GL_ACTIVE_UNIFORM_BLOCKS, &num_uniform_blocks);
+  vendorGetProgramiv(service_id_, GL_ACTIVE_UNIFORM_BLOCKS, &num_uniform_blocks);
   uniform_block_size_info_.resize(num_uniform_blocks);
   for (GLint ii = 0; ii < num_uniform_blocks; ++ii) {
     GLint binding = 0;
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         service_id_, ii, GL_UNIFORM_BLOCK_BINDING, &binding);
     uniform_block_size_info_[ii].binding = static_cast<GLuint>(binding);
 
     GLint size = 0;
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         service_id_, ii, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
     uniform_block_size_info_[ii].data_size = static_cast<GLuint>(size);
   }
@@ -586,14 +588,14 @@ std::string Program::ProcessLogInfo(const std::string& log) {
 
 void Program::UpdateLogInfo() {
   GLint max_len = 0;
-  glGetProgramiv(service_id_, GL_INFO_LOG_LENGTH, &max_len);
+  vendorGetProgramiv(service_id_, GL_INFO_LOG_LENGTH, &max_len);
   if (max_len == 0) {
     set_log_info(nullptr);
     return;
   }
   std::unique_ptr<char[]> temp(new char[max_len]);
   GLint len = 0;
-  glGetProgramInfoLog(service_id_, max_len, &len, temp.get());
+  vendorGetProgramInfoLog(service_id_, max_len, &len, temp.get());
   DCHECK(max_len == 0 || len < max_len);
   DCHECK(len == 0 || temp[len] == '\0');
   std::string log(temp.get(), len);
@@ -621,16 +623,16 @@ void Program::ClearUniforms(std::vector<uint8_t>* zero_buffer) {
     const void* zero = &(*zero_buffer)[0];
     switch (uniform_info.type) {
     case GL_FLOAT:
-      glUniform1fv(location, size, reinterpret_cast<const GLfloat*>(zero));
+      vendorUniform1fv(location, size, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_VEC2:
-      glUniform2fv(location, size, reinterpret_cast<const GLfloat*>(zero));
+      vendorUniform2fv(location, size, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_VEC3:
-      glUniform3fv(location, size, reinterpret_cast<const GLfloat*>(zero));
+      vendorUniform3fv(location, size, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_VEC4:
-      glUniform4fv(location, size, reinterpret_cast<const GLfloat*>(zero));
+      vendorUniform4fv(location, size, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_INT:
     case GL_BOOL:
@@ -638,36 +640,36 @@ void Program::ClearUniforms(std::vector<uint8_t>* zero_buffer) {
     case GL_SAMPLER_CUBE:
     case GL_SAMPLER_EXTERNAL_OES:  // extension.
     case GL_SAMPLER_2D_RECT_ARB:  // extension.
-      glUniform1iv(location, size, reinterpret_cast<const GLint*>(zero));
+      vendorUniform1iv(location, size, reinterpret_cast<const GLint*>(zero));
       break;
     case GL_INT_VEC2:
     case GL_BOOL_VEC2:
-      glUniform2iv(location, size, reinterpret_cast<const GLint*>(zero));
+      vendorUniform2iv(location, size, reinterpret_cast<const GLint*>(zero));
       break;
     case GL_INT_VEC3:
     case GL_BOOL_VEC3:
-      glUniform3iv(location, size, reinterpret_cast<const GLint*>(zero));
+      vendorUniform3iv(location, size, reinterpret_cast<const GLint*>(zero));
       break;
     case GL_INT_VEC4:
     case GL_BOOL_VEC4:
-      glUniform4iv(location, size, reinterpret_cast<const GLint*>(zero));
+      vendorUniform4iv(location, size, reinterpret_cast<const GLint*>(zero));
       break;
     case GL_FLOAT_MAT2:
-      glUniformMatrix2fv(
+      vendorUniformMatrix2fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT3:
-      glUniformMatrix3fv(
+      vendorUniformMatrix3fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT4:
-      glUniformMatrix4fv(
+      vendorUniformMatrix4fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
 
     // ES3 types.
     case GL_UNSIGNED_INT:
-      glUniform1uiv(location, size, reinterpret_cast<const GLuint*>(zero));
+      vendorUniform1uiv(location, size, reinterpret_cast<const GLuint*>(zero));
       break;
     case GL_SAMPLER_3D:
     case GL_SAMPLER_2D_SHADOW:
@@ -682,39 +684,39 @@ void Program::ClearUniforms(std::vector<uint8_t>* zero_buffer) {
     case GL_UNSIGNED_INT_SAMPLER_3D:
     case GL_UNSIGNED_INT_SAMPLER_CUBE:
     case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
-      glUniform1iv(location, size, reinterpret_cast<const GLint*>(zero));
+      vendorUniform1iv(location, size, reinterpret_cast<const GLint*>(zero));
       break;
     case GL_UNSIGNED_INT_VEC2:
-      glUniform2uiv(location, size, reinterpret_cast<const GLuint*>(zero));
+      vendorUniform2uiv(location, size, reinterpret_cast<const GLuint*>(zero));
       break;
     case GL_UNSIGNED_INT_VEC3:
-      glUniform3uiv(location, size, reinterpret_cast<const GLuint*>(zero));
+      vendorUniform3uiv(location, size, reinterpret_cast<const GLuint*>(zero));
       break;
     case GL_UNSIGNED_INT_VEC4:
-      glUniform4uiv(location, size, reinterpret_cast<const GLuint*>(zero));
+      vendorUniform4uiv(location, size, reinterpret_cast<const GLuint*>(zero));
       break;
     case GL_FLOAT_MAT2x3:
-      glUniformMatrix2x3fv(
+      vendorUniformMatrix2x3fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT3x2:
-      glUniformMatrix3x2fv(
+      vendorUniformMatrix3x2fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT2x4:
-      glUniformMatrix2x4fv(
+      vendorUniformMatrix2x4fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT4x2:
-      glUniformMatrix4x2fv(
+      vendorUniformMatrix4x2fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT3x4:
-      glUniformMatrix3x4fv(
+      vendorUniformMatrix3x4fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
     case GL_FLOAT_MAT4x3:
-      glUniformMatrix4x3fv(
+      vendorUniformMatrix4x3fv(
           location, size, false, reinterpret_cast<const GLfloat*>(zero));
       break;
 
@@ -733,15 +735,15 @@ void Program::Update() {
   GLint num_attribs = 0;
   GLint max_len = 0;
   size_t num_locations = 0;
-  glGetProgramiv(service_id_, GL_ACTIVE_ATTRIBUTES, &num_attribs);
-  glGetProgramiv(service_id_, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_len);
+  vendorGetProgramiv(service_id_, GL_ACTIVE_ATTRIBUTES, &num_attribs);
+  vendorGetProgramiv(service_id_, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_len);
   // TODO(gman): Should we check for error?
   std::unique_ptr<char[]> name_buffer(new char[max_len]);
   for (GLint ii = 0; ii < num_attribs; ++ii) {
     GLsizei length = 0;
     GLsizei size = 0;
     GLenum type = 0;
-    glGetActiveAttrib(
+    vendorGetActiveAttrib(
         service_id_, ii, max_len, &length, &size, &type, name_buffer.get());
     DCHECK(max_len == 0 || length < max_len);
     DCHECK(length == 0 || name_buffer[length] == '\0');
@@ -749,7 +751,7 @@ void Program::Update() {
     GetVertexAttribData(name_buffer.get(), &original_name, &type);
     size_t location_count = size * LocationCountForAttribType(type);
     // TODO(gman): Should we check for error?
-    GLint location = glGetAttribLocation(service_id_, name_buffer.get());
+    GLint location = vendorGetAttribLocation(service_id_, name_buffer.get());
     num_locations = std::max(num_locations, location + location_count);
     attrib_infos_.push_back(
         VertexAttrib(1, type, original_name, location, location_count));
@@ -817,14 +819,14 @@ bool Program::UpdateUniforms() {
   }
 
   GLint num_uniforms = 0;
-  glGetProgramiv(service_id_, GL_ACTIVE_UNIFORMS, &num_uniforms);
+  vendorGetProgramiv(service_id_, GL_ACTIVE_UNIFORMS, &num_uniforms);
   if (num_uniforms <= 0)
     return true;
 
   uniform_infos_.resize(num_uniforms);
 
   GLint name_buffer_length = 0;
-  glGetProgramiv(service_id_, GL_ACTIVE_UNIFORM_MAX_LENGTH,
+  vendorGetProgramiv(service_id_, GL_ACTIVE_UNIFORM_MAX_LENGTH,
                  &name_buffer_length);
   DCHECK(name_buffer_length > 0);
   std::unique_ptr<char[]> name_buffer(new char[name_buffer_length]);
@@ -835,7 +837,7 @@ bool Program::UpdateUniforms() {
     GLsizei name_length = 0;
     GLsizei size = 0;
     GLenum type = GL_NONE;
-    glGetActiveUniform(service_id_, uniform_index, name_buffer_length,
+    vendorGetActiveUniform(service_id_, uniform_index, name_buffer_length,
                        &name_length, &size, &type, name_buffer.get());
     // Avoid immediately crashing if glGetActiveUniform misbehaves.
     if (!size)
@@ -848,7 +850,7 @@ bool Program::UpdateUniforms() {
     // Force builtin uniforms (gl_DepthRange) to have invalid location.
     if (!ProgramManager::HasBuiltInPrefix(service_name)) {
       service_location =
-          glGetUniformLocation(service_id_, service_name.c_str());
+          vendorGetUniformLocation(service_id_, service_name.c_str());
     }
 
     // Determine the client name of the uniform and whether it is an array
@@ -959,7 +961,7 @@ bool Program::UpdateUniforms() {
         std::string element_name(service_base_name + "[" +
                                  base::IntToString(ii) + "]");
         service_locations[ii] =
-            glGetUniformLocation(service_id_, element_name.c_str());
+            vendorGetUniformLocation(service_id_, element_name.c_str());
       }
     }
 
@@ -995,13 +997,13 @@ void Program::UpdateFragmentInputs() {
   }
 
   GLint num_fragment_inputs = 0;
-  glGetProgramInterfaceiv(service_id_, GL_FRAGMENT_INPUT_NV,
+  vendorGetProgramInterfaceiv(service_id_, GL_FRAGMENT_INPUT_NV,
                           GL_ACTIVE_RESOURCES, &num_fragment_inputs);
   if (num_fragment_inputs <= 0)
     return;
 
   GLint max_len = 0;
-  glGetProgramInterfaceiv(service_id_, GL_FRAGMENT_INPUT_NV, GL_MAX_NAME_LENGTH,
+  vendorGetProgramInterfaceiv(service_id_, GL_FRAGMENT_INPUT_NV, GL_MAX_NAME_LENGTH,
                           &max_len);
   DCHECK(max_len > 0);
 
@@ -1016,7 +1018,7 @@ void Program::UpdateFragmentInputs() {
   std::vector<size_t> client_location_indices;
   for (GLint ii = 0; ii < num_fragment_inputs; ++ii) {
     GLsizei name_length = 0;
-    glGetProgramResourceName(service_id_, GL_FRAGMENT_INPUT_NV, ii, max_len,
+    vendorGetProgramResourceName(service_id_, GL_FRAGMENT_INPUT_NV, ii, max_len,
                              &name_length, name_buffer.get());
     DCHECK(name_length < max_len);
     DCHECK(name_length == 0 || name_buffer[name_length] == '\0');
@@ -1032,7 +1034,7 @@ void Program::UpdateFragmentInputs() {
     GLint query_results[arraysize(kQueryProperties)] = {
         0,
     };
-    glGetProgramResourceiv(service_id_, GL_FRAGMENT_INPUT_NV, ii,
+    vendorGetProgramResourceiv(service_id_, GL_FRAGMENT_INPUT_NV, ii,
                            arraysize(kQueryProperties), kQueryProperties,
                            arraysize(query_results), &query_length,
                            query_results);
@@ -1090,7 +1092,7 @@ void Program::UpdateFragmentInputs() {
         size_t client_location = static_cast<size_t>(it->second);
         std::string service_element_name =
             parsed_service_name.base_name() + array_spec;
-        GLint service_location = glGetProgramResourceLocation(
+        GLint service_location = vendorGetProgramResourceLocation(
             service_id_, GL_FRAGMENT_INPUT_NV, service_element_name.c_str());
         if (service_location >= 0) {
           fragment_input_infos_.push_back(
@@ -1130,12 +1132,12 @@ void Program::UpdateProgramOutputs() {
     std::string client_name = output_var.name;
     if (!output_var.isArray()) {
       GLint color_name =
-          glGetFragDataLocation(service_id_, service_name.c_str());
+          vendorGetFragDataLocation(service_id_, service_name.c_str());
       if (color_name < 0)
         continue;
       GLint index = 0;
       if (feature_info().feature_flags().ext_blend_func_extended)
-        index = glGetFragDataIndex(service_id_, service_name.c_str());
+        index = vendorGetFragDataIndex(service_id_, service_name.c_str());
       if (index < 0)
         continue;
       program_output_infos_.push_back(
@@ -1143,7 +1145,7 @@ void Program::UpdateProgramOutputs() {
     } else if (feature_info().workarounds().get_frag_data_info_bug) {
       DCHECK(!feature_info().feature_flags().ext_blend_func_extended);
       GLint color_name =
-          glGetFragDataLocation(service_id_, service_name.c_str());
+          vendorGetFragDataLocation(service_id_, service_name.c_str());
       if (color_name >= 0) {
         GLint index = 0;
         for (size_t ii = 0; ii < output_var.getOutermostArraySize(); ++ii) {
@@ -1158,12 +1160,12 @@ void Program::UpdateProgramOutputs() {
         std::string array_spec(std::string("[") + base::IntToString(ii) + "]");
         std::string service_element_name(service_name + array_spec);
         GLint color_name =
-            glGetFragDataLocation(service_id_, service_element_name.c_str());
+            vendorGetFragDataLocation(service_id_, service_element_name.c_str());
         if (color_name < 0)
           continue;
         GLint index = 0;
         if (feature_info().feature_flags().ext_blend_func_extended)
-          index = glGetFragDataIndex(service_id_, service_element_name.c_str());
+          index = vendorGetFragDataIndex(service_id_, service_element_name.c_str());
         if (index < 0)
           continue;
         program_output_infos_.push_back(
@@ -1177,7 +1179,7 @@ void Program::ExecuteBindAttribLocationCalls() {
   for (const auto& key_value : bind_attrib_location_map_) {
     const std::string* mapped_name = GetAttribMappedName(key_value.first);
     if (mapped_name)
-      glBindAttribLocation(service_id_, key_value.second, mapped_name->c_str());
+      vendorBindAttribLocation(service_id_, key_value.second, mapped_name->c_str());
   }
 }
 
@@ -1204,7 +1206,7 @@ bool Program::ExecuteTransformFeedbackVaryingsCall() {
       }
       mapped_names.push_back(mapped->c_str());
     }
-    glTransformFeedbackVaryings(service_id_,
+    vendorTransformFeedbackVaryings(service_id_,
                                 mapped_names.size(),
                                 &mapped_names.front(),
                                 transform_feedback_buffer_mode_);
@@ -1251,11 +1253,11 @@ void Program::ExecuteProgramOutputBindCalls() {
         if (binding.second == 0) {
           // Handles the cases where client called glBindFragDataLocation as
           // well as glBindFragDataLocationIndexed with index == 0.
-          glBindFragDataLocation(service_id_, binding.first,
+          vendorBindFragDataLocation(service_id_, binding.first,
                                  mapped_name.c_str());
         } else {
           DCHECK(feature_info().feature_flags().ext_blend_func_extended);
-          glBindFragDataLocationIndexed(service_id_, binding.first,
+          vendorBindFragDataLocationIndexed(service_id_, binding.first,
                                         binding.second, mapped_name.c_str());
         }
       }
@@ -1293,12 +1295,12 @@ void Program::ExecuteProgramOutputBindCalls() {
     } else if (name == "gl_SecondaryFragColorEXT") {
       DCHECK_EQ(-1, output_var.location);
       DCHECK_EQ(false, output_var.isArray());
-      glBindFragDataLocationIndexed(service_id_, 0, 1,
+      vendorBindFragDataLocationIndexed(service_id_, 0, 1,
                                     "angle_SecondaryFragColor");
     } else if (name == "gl_SecondaryFragDataEXT") {
       DCHECK_EQ(-1, output_var.location);
       DCHECK_NE(0u, output_var.getOutermostArraySize());
-      glBindFragDataLocationIndexed(service_id_, 0, 1,
+      vendorBindFragDataLocationIndexed(service_id_, 0, 1,
                                     "angle_SecondaryFragData");
     }
   }
@@ -1353,7 +1355,7 @@ bool Program::Link(ShaderManager* manager,
       return false;
     }
     if (DetectAttribLocationBindingConflicts()) {
-      set_log_info("glBindAttribLocation() conflicts");
+      set_log_info("vendorBindAttribLocation() conflicts");
       return false;
     }
     std::string conflicting_name;
@@ -1364,7 +1366,7 @@ bool Program::Link(ShaderManager* manager,
       return false;
     }
     if (DetectUniformLocationBindingConflicts()) {
-      set_log_info("glBindUniformLocationCHROMIUM() conflicts");
+      set_log_info("vendorBindUniformLocationCHROMIUM() conflicts");
       return false;
     }
     if (DetectInterfaceBlocksMismatch(&conflicting_name)) {
@@ -1384,11 +1386,11 @@ bool Program::Link(ShaderManager* manager,
       return false;
     }
     if (DetectFragmentInputLocationBindingConflicts()) {
-      set_log_info("glBindFragmentInputLocationCHROMIUM() conflicts");
+      set_log_info("vendorBindFragmentInputLocationCHROMIUM() conflicts");
       return false;
     }
     if (DetectProgramOutputLocationBindingConflicts()) {
-      set_log_info("glBindFragDataLocation() conflicts");
+      set_log_info("vendorBindFragDataLocation() conflicts");
       return false;
     }
     if (DetectBuiltInInvariantConflicts()) {
@@ -1414,16 +1416,16 @@ bool Program::Link(ShaderManager* manager,
 
     ExecuteProgramOutputBindCalls();
 
-    if (cache && gl::g_current_gl_driver->ext.b_GL_ARB_get_program_binary) {
-      glProgramParameteri(service_id(),
+    if (cache && driver_->ext.b_GL_ARB_get_program_binary) {
+      vendorProgramParameteri(service_id(),
                           PROGRAM_BINARY_RETRIEVABLE_HINT,
                           GL_TRUE);
     }
-    glLinkProgram(service_id());
+    vendorLinkProgram(service_id());
   }
 
   GLint success = 0;
-  glGetProgramiv(service_id(), GL_LINK_STATUS, &success);
+  vendorGetProgramiv(service_id(), GL_LINK_STATUS, &success);
   if (success == GL_TRUE) {
     for (size_t ii = 0; ii < kMaxAttachedShaders; ++ii)
       shaders_from_last_successful_link_[ii] = attached_shaders_[ii];
@@ -1471,7 +1473,7 @@ void Program::Validate() {
     set_log_info("program not linked");
     return;
   }
-  glValidateProgram(service_id());
+  vendorValidateProgram(service_id());
   UpdateLogInfo();
 }
 
@@ -1780,11 +1782,11 @@ void Program::GetProgramiv(GLenum pname, GLint* params) {
       if (!IsValid()) {
         *params = GL_FALSE;
       } else {
-        glGetProgramiv(service_id_, pname, params);
+        vendorGetProgramiv(service_id_, pname, params);
       }
       break;
     default:
-      glGetProgramiv(service_id_, pname, params);
+      vendorGetProgramiv(service_id_, pname, params);
       break;
   }
 }
@@ -2247,10 +2249,10 @@ bool Program::GetUniformBlocks(CommonDecoder::Bucket* bucket) const {
   uint32_t num_uniform_blocks = 0;
   GLint param = GL_FALSE;
   // We assume program is a valid program service id.
-  glGetProgramiv(program, GL_LINK_STATUS, &param);
+  vendorGetProgramiv(program, GL_LINK_STATUS, &param);
   if (param == GL_TRUE) {
     param = 0;
-    glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &param);
+    vendorGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &param);
     num_uniform_blocks = static_cast<uint32_t>(param);
   }
   if (num_uniform_blocks == 0) {
@@ -2266,27 +2268,27 @@ bool Program::GetUniformBlocks(CommonDecoder::Bucket* bucket) const {
   size += header_size;
   std::vector<std::string> names(num_uniform_blocks);
   GLint max_name_length = 0;
-  glGetProgramiv(
+  vendorGetProgramiv(
       program, GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH, &max_name_length);
   std::vector<GLchar> buffer(max_name_length);
   GLsizei length;
   for (uint32_t ii = 0; ii < num_uniform_blocks; ++ii) {
     param = 0;
-    glGetActiveUniformBlockiv(program, ii, GL_UNIFORM_BLOCK_BINDING, &param);
+    vendorGetActiveUniformBlockiv(program, ii, GL_UNIFORM_BLOCK_BINDING, &param);
     blocks[ii].binding = static_cast<uint32_t>(param);
 
     param = 0;
-    glGetActiveUniformBlockiv(program, ii, GL_UNIFORM_BLOCK_DATA_SIZE, &param);
+    vendorGetActiveUniformBlockiv(program, ii, GL_UNIFORM_BLOCK_DATA_SIZE, &param);
     blocks[ii].data_size = static_cast<uint32_t>(param);
 
     blocks[ii].name_offset = size.ValueOrDefault(0);
     param = 0;
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         program, ii, GL_UNIFORM_BLOCK_NAME_LENGTH, &param);
     DCHECK_GE(max_name_length, param);
     memset(&buffer[0], 0, param);
     length = 0;
-    glGetActiveUniformBlockName(
+    vendorGetActiveUniformBlockName(
         program, ii, static_cast<GLsizei>(param), &length, &buffer[0]);
     DCHECK_EQ(param, length + 1);
     names[ii] = std::string(&buffer[0], length);
@@ -2305,7 +2307,7 @@ bool Program::GetUniformBlocks(CommonDecoder::Bucket* bucket) const {
     size += blocks[ii].name_length;
 
     param = 0;
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         program, ii, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, &param);
     blocks[ii].active_uniforms = static_cast<uint32_t>(param);
     blocks[ii].active_uniform_offset = size.ValueOrDefault(0);
@@ -2316,12 +2318,12 @@ bool Program::GetUniformBlocks(CommonDecoder::Bucket* bucket) const {
     size += indices_size.ValueOrDefault(0);
 
     param = 0;
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         program, ii, GL_UNIFORM_BLOCK_REFERENCED_BY_VERTEX_SHADER, &param);
     blocks[ii].referenced_by_vertex_shader = static_cast<uint32_t>(param);
 
     param = 0;
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         program, ii, GL_UNIFORM_BLOCK_REFERENCED_BY_FRAGMENT_SHADER, &param);
     blocks[ii].referenced_by_fragment_shader = static_cast<uint32_t>(param);
   }
@@ -2356,7 +2358,7 @@ bool Program::GetUniformBlocks(CommonDecoder::Bucket* bucket) const {
       params.resize(blocks[ii].active_uniforms);
     uint32_t num_bytes = blocks[ii].active_uniforms * sizeof(GLint);
     memset(&params[0], 0, num_bytes);
-    glGetActiveUniformBlockiv(
+    vendorGetActiveUniformBlockiv(
         program, ii, GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES, &params[0]);
     uint32_t* indices = reinterpret_cast<uint32_t*>(data);
     for (uint32_t uu = 0; uu < blocks[ii].active_uniforms; ++uu) {
@@ -2386,16 +2388,16 @@ bool Program::GetTransformFeedbackVaryings(
 
   GLenum transform_feedback_buffer_mode = 0;
   GLint param = 0;
-  glGetProgramiv(program, GL_TRANSFORM_FEEDBACK_BUFFER_MODE, &param);
+  vendorGetProgramiv(program, GL_TRANSFORM_FEEDBACK_BUFFER_MODE, &param);
   transform_feedback_buffer_mode = static_cast<GLenum>(param);
 
   uint32_t num_transform_feedback_varyings = 0;
   param = GL_FALSE;
   // We assume program is a valid program service id.
-  glGetProgramiv(program, GL_LINK_STATUS, &param);
+  vendorGetProgramiv(program, GL_LINK_STATUS, &param);
   if (param == GL_TRUE) {
     param = 0;
-    glGetProgramiv(program, GL_TRANSFORM_FEEDBACK_VARYINGS, &param);
+    vendorGetProgramiv(program, GL_TRANSFORM_FEEDBACK_VARYINGS, &param);
     num_transform_feedback_varyings = static_cast<uint32_t>(param);
   }
   if (num_transform_feedback_varyings == 0) {
@@ -2413,7 +2415,7 @@ bool Program::GetTransformFeedbackVaryings(
   size += header_size;
   std::vector<std::string> names(num_transform_feedback_varyings);
   GLint max_name_length = 0;
-  glGetProgramiv(
+  vendorGetProgramiv(
       program, GL_TRANSFORM_FEEDBACK_VARYING_MAX_LENGTH, &max_name_length);
   if (max_name_length < 1)
     max_name_length = 1;
@@ -2422,7 +2424,7 @@ bool Program::GetTransformFeedbackVaryings(
     GLsizei var_size = 0;
     GLsizei var_name_length = 0;
     GLenum var_type = 0;
-    glGetTransformFeedbackVarying(
+    vendorGetTransformFeedbackVarying(
         program, ii, max_name_length,
         &var_name_length, &var_size, &var_type, &buffer[0]);
     varyings[ii].size = static_cast<uint32_t>(var_size);
@@ -2483,10 +2485,10 @@ bool Program::GetUniformsES3(CommonDecoder::Bucket* bucket) const {
   GLsizei count = 0;
   GLint param = GL_FALSE;
   // We assume program is a valid program service id.
-  glGetProgramiv(program, GL_LINK_STATUS, &param);
+  vendorGetProgramiv(program, GL_LINK_STATUS, &param);
   if (param == GL_TRUE) {
     param = 0;
-    glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &count);
+    vendorGetProgramiv(program, GL_ACTIVE_UNIFORMS, &count);
   }
   if (count == 0) {
     return true;
@@ -2531,7 +2533,7 @@ bool Program::GetUniformsES3(CommonDecoder::Bucket* bucket) const {
     for (GLsizei ii = 0; ii < count; ++ii) {
       params[ii] = kDefaultValue[pname_index];
     }
-    glGetActiveUniformsiv(
+    vendorGetActiveUniformsiv(
         program, count, &indices[0], kPname[pname_index], &params[0]);
     for (GLsizei ii = 0; ii < count; ++ii) {
       entries[kStride * ii + pname_index] = params[ii];
@@ -2583,7 +2585,7 @@ void Program::TransformFeedbackVaryings(GLsizei count,
 Program::~Program() {
   if (manager_) {
     if (manager_->have_context_) {
-      glDeleteProgram(service_id());
+      vendorDeleteProgram(service_id());
     }
     manager_->StopTracking(this);
     manager_ = NULL;

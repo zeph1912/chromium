@@ -43,6 +43,7 @@ class GL_EXPORT GLApiBase : public GLApi {
   DriverGL* driver_;
 };
 
+
 // Implemenents the GL API by calling directly into the driver.
 class GL_EXPORT RealGLApi : public GLApiBase {
  public:

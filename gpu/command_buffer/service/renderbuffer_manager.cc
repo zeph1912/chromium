@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/renderbuffer_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -166,21 +167,21 @@ bool Renderbuffer::RegenerateAndBindBackingObjectIfNeeded(
   }
 
   GLint original_fbo = 0;
-  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &original_fbo);
+  vendorGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &original_fbo);
 
-  glDeleteRenderbuffersEXT(1, &service_id_);
+  vendorDeleteRenderbuffersEXT(1, &service_id_);
   service_id_ = 0;
-  glGenRenderbuffersEXT(1, &service_id_);
-  glBindRenderbufferEXT(GL_RENDERBUFFER, service_id_);
+  vendorGenRenderbuffersEXT(1, &service_id_);
+  vendorBindRenderbufferEXT(GL_RENDERBUFFER, service_id_);
 
   // Attach new renderbuffer to all framebuffers
   for (auto& point : framebuffer_attachment_points_) {
-    glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, point.first->service_id());
-    glFramebufferRenderbufferEXT(GL_DRAW_FRAMEBUFFER, point.second,
+    vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, point.first->service_id());
+    vendorFramebufferRenderbufferEXT(GL_DRAW_FRAMEBUFFER, point.second,
                                  GL_RENDERBUFFER, service_id_);
   }
 
-  glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, original_fbo);
+  vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, original_fbo);
 
   allocated_ = false;
   return true;
@@ -203,7 +204,7 @@ Renderbuffer::~Renderbuffer() {
   if (manager_) {
     if (manager_->have_context_) {
       GLuint id = service_id();
-      glDeleteRenderbuffersEXT(1, &id);
+      vendorDeleteRenderbuffersEXT(1, &id);
     }
     manager_->StopTracking(this);
     manager_ = NULL;

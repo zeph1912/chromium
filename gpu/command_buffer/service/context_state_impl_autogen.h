@@ -12,6 +12,8 @@
 #ifndef GPU_COMMAND_BUFFER_SERVICE_CONTEXT_STATE_IMPL_AUTOGEN_H_
 #define GPU_COMMAND_BUFFER_SERVICE_CONTEXT_STATE_IMPL_AUTOGEN_H_
 
+#include "gpu/command_buffer/service/milko_prints.h"
+
 ContextState::EnableFlags::EnableFlags()
     : blend(false),
       cached_blend(false),
@@ -271,7 +273,7 @@ void ContextState::InitState(const ContextState* prev_state) const {
       api()->glClearColorFn(color_clear_red, color_clear_green,
                             color_clear_blue, color_clear_alpha);
     if ((depth_clear != prev_state->depth_clear))
-      api()->glClearDepthFn(depth_clear);
+      api()->glClearDepthfFn(depth_clear);
     if ((stencil_clear != prev_state->stencil_clear))
       api()->glClearStencilFn(stencil_clear);
     if ((cached_color_mask_red != prev_state->cached_color_mask_red) ||
@@ -290,7 +292,7 @@ void ContextState::InitState(const ContextState* prev_state) const {
     if ((cached_depth_mask != prev_state->cached_depth_mask))
       api()->glDepthMaskFn(cached_depth_mask);
     if ((z_near != prev_state->z_near) || (z_far != prev_state->z_far))
-      api()->glDepthRangeFn(z_near, z_far);
+      api()->glDepthRangefFn(z_near, z_far);
     if ((front_face != prev_state->front_face))
       api()->glFrontFaceFn(front_face);
     if (!feature_info_->gl_version_info().is_desktop_core_profile) {
@@ -385,7 +387,7 @@ void ContextState::InitState(const ContextState* prev_state) const {
                                  blend_source_alpha, blend_dest_alpha);
     api()->glClearColorFn(color_clear_red, color_clear_green, color_clear_blue,
                           color_clear_alpha);
-    api()->glClearDepthFn(depth_clear);
+    api()->glClearDepthfFn(depth_clear);
     api()->glClearStencilFn(stencil_clear);
     api()->glColorMaskFn(cached_color_mask_red, cached_color_mask_green,
                          cached_color_mask_blue, cached_color_mask_alpha);
@@ -394,7 +396,7 @@ void ContextState::InitState(const ContextState* prev_state) const {
     api()->glCullFaceFn(cull_mode);
     api()->glDepthFuncFn(depth_func);
     api()->glDepthMaskFn(cached_depth_mask);
-    api()->glDepthRangeFn(z_near, z_far);
+    api()->glDepthRangefFn(z_near, z_far);
     api()->glFrontFaceFn(front_face);
     if (!feature_info_->gl_version_info().is_desktop_core_profile) {
       api()->glHintFn(GL_GENERATE_MIPMAP_HINT, hint_generate_mipmap);

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/gpu_state_tracer.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include "base/base64.h"
 #include "base/macros.h"
@@ -54,15 +55,15 @@ bool Snapshot::SaveScreenshot(const gfx::Size& size) {
   screenshot_pixels_.resize(screenshot_size_.width() *
                             screenshot_size_.height() * kBytesPerPixel);
 
-  glPixelStorei(GL_PACK_ALIGNMENT, kBytesPerPixel);
-  glReadPixels(0,
+  vendorPixelStorei(GL_PACK_ALIGNMENT, kBytesPerPixel);
+  vendorReadPixels(0,
                0,
                screenshot_size_.width(),
                screenshot_size_.height(),
                GL_RGBA,
                GL_UNSIGNED_BYTE,
                &screenshot_pixels_[0]);
-  glPixelStorei(GL_PACK_ALIGNMENT, state_->pack_alignment);
+  vendorPixelStorei(GL_PACK_ALIGNMENT, state_->pack_alignment);
 
   // Flip the screenshot vertically.
   int bytes_per_row = screenshot_size_.width() * kBytesPerPixel;

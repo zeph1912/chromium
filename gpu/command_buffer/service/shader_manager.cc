@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/shader_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 
@@ -11,6 +12,7 @@
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "gpu/command_buffer/service/progress_reporter.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 
 namespace gpu {
 namespace gles2 {
@@ -86,8 +88,8 @@ void Shader::DoCompile() {
     source_for_driver = translated_source_.c_str();
   }
 
-  glShaderSource(service_id_, 1, &source_for_driver, NULL);
-  glCompileShader(service_id_);
+  vendorShaderSource(service_id_, 1, &source_for_driver, NULL);
+  vendorCompileShader(service_id_);
 
   if (source_type_ == kANGLE) {
     RefreshTranslatedShaderSource();
@@ -95,7 +97,7 @@ void Shader::DoCompile() {
   }
 
   GLint status = GL_FALSE;
-  glGetShaderiv(service_id_, GL_COMPILE_STATUS, &status);
+  vendorGetShaderiv(service_id_, GL_COMPILE_STATUS, &status);
   if (status == GL_TRUE) {
     valid_ = true;
   } else {
@@ -107,11 +109,11 @@ void Shader::DoCompile() {
     std::string translator_log = log_info_;
 
     GLint max_len = 0;
-    glGetShaderiv(service_id_, GL_INFO_LOG_LENGTH, &max_len);
+    vendorGetShaderiv(service_id_, GL_INFO_LOG_LENGTH, &max_len);
     log_info_.resize(max_len);
     if (max_len) {
       GLint len = 0;
-      glGetShaderInfoLog(service_id_, log_info_.size(), &len, &log_info_.at(0));
+      vendorGetShaderInfoLog(service_id_, log_info_.size(), &len, &log_info_.at(0));
       DCHECK(max_len == 0 || len < max_len);
       DCHECK(len == 0 || log_info_[len] == '\0');
       log_info_.resize(len);
@@ -133,12 +135,12 @@ void Shader::DoCompile() {
 void Shader::RefreshTranslatedShaderSource() {
   if (source_type_ == kANGLE) {
     GLint max_len = 0;
-    glGetShaderiv(service_id_, GL_TRANSLATED_SHADER_SOURCE_LENGTH_ANGLE,
+    vendorGetShaderiv(service_id_, GL_TRANSLATED_SHADER_SOURCE_LENGTH_ANGLE,
                   &max_len);
     translated_source_.resize(max_len);
     if (max_len) {
       GLint len = 0;
-      glGetTranslatedShaderSourceANGLE(service_id_, translated_source_.size(),
+      vendorGetTranslatedShaderSourceANGLE(service_id_, translated_source_.size(),
                                        &len, &translated_source_.at(0));
       DCHECK(max_len == 0 || len < max_len);
       DCHECK(len == 0 || translated_source_[len] == '\0');
@@ -171,7 +173,7 @@ void Shader::MarkForDeletion() {
 
 void Shader::DeleteServiceID() {
   DCHECK_NE(service_id_, 0u);
-  glDeleteShader(service_id_);
+  vendorDeleteShader(service_id_);
   service_id_ = 0;
 }
 

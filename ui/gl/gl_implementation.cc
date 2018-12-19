@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "gpu/command_buffer/service/milko_prints.h"
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
@@ -147,6 +149,7 @@ GLImplementation GetGLImplementation() {
 }
 
 bool HasDesktopGLFeatures() {
+  return false;
   return kGLImplementationDesktopGL == g_gl_implementation ||
          kGLImplementationDesktopGLCoreProfile == g_gl_implementation ||
          kGLImplementationOSMesaGL == g_gl_implementation ||
@@ -174,8 +177,10 @@ void SetGLGetProcAddressProc(GLGetProcAddressProc proc) {
   *g_get_proc_address = proc;
 }
 
+
 GLFunctionPointerType GetGLProcAddress(const char* name) {
   DCHECK(g_gl_implementation != kGLImplementationNone);
+
 
   if (g_libraries) {
     for (size_t i = 0; i < g_libraries->size(); ++i) {
@@ -235,6 +240,7 @@ GLWindowSystemBindingInfo::GLWindowSystemBindingInfo()
 
 std::string GetGLExtensionsFromCurrentContext() {
   return GetGLExtensionsFromCurrentContext(g_current_gl_context);
+
 }
 
 std::string GetGLExtensionsFromCurrentContext(GLApi* api) {

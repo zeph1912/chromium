@@ -1330,10 +1330,11 @@ bool Validators::VertexAttribITypeValidator::IsValid(const GLenum value) const {
 };
 
 static const GLenum valid_vertex_attrib_type_table[] = {
-    GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_FLOAT,
+    GL_FIXED, GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_FLOAT,
 };
 
 static const GLenum valid_vertex_attrib_type_table_es3[] = {
+    GL_FIXED,
     GL_INT,
     GL_UNSIGNED_INT,
     GL_HALF_FLOAT,

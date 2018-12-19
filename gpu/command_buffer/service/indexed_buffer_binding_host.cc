@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/indexed_buffer_binding_host.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include "gpu/command_buffer/service/buffer_manager.h"
 
@@ -91,7 +92,7 @@ void IndexedBufferBindingHost::DoBindBufferBase(
     GLenum target, GLuint index, Buffer* buffer) {
   DCHECK_LT(index, buffer_bindings_.size());
   GLuint service_id = buffer ? buffer->service_id() : 0;
-  glBindBufferBase(target, index, service_id);
+  vendorBindBufferBase(target, index, service_id);
 
   buffer_bindings_[index].SetBindBufferBase(buffer);
   UpdateMaxNonNullBindingIndex(index);
@@ -106,7 +107,7 @@ void IndexedBufferBindingHost::DoBindBufferRange(
     DoAdjustedBindBufferRange(
         target, index, service_id, offset, size, buffer->size());
   } else {
-    glBindBufferRange(target, index, service_id, offset, size);
+    vendorBindBufferRange(target, index, service_id, offset, size);
   }
 
   buffer_bindings_[index].SetBindBufferRange(buffer, offset, size);
@@ -125,7 +126,7 @@ void IndexedBufferBindingHost::DoAdjustedBindBufferRange(
     // TODO(zmo): it's ambiguous in the GL 4.1 spec whether BindBufferBase
     // generates a GL error in such case. In reality, no error is generated on
     // MacOSX with AMD/4.1.
-    glBindBufferBase(target, index, service_id);
+    vendorBindBufferBase(target, index, service_id);
     return;
   } else if (offset + size > full_buffer_size) {
     adjusted_size = full_buffer_size - offset;
@@ -134,11 +135,11 @@ void IndexedBufferBindingHost::DoAdjustedBindBufferRange(
     if (adjusted_size == 0) {
       // Situation 2: The original size is valid, but the adjusted size
       // is 0 and isn't valid. Handle it the same way as situation 1.
-      glBindBufferBase(target, index, service_id);
+      vendorBindBufferBase(target, index, service_id);
       return;
     }
   }
-  glBindBufferRange(target, index, service_id, offset, adjusted_size);
+  vendorBindBufferRange(target, index, service_id, offset, adjusted_size);
 }
 
 void IndexedBufferBindingHost::OnBindHost(GLenum target) {

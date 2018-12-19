@@ -21,6 +21,7 @@
 #include "gpu/command_buffer/service/framebuffer_completeness_cache.h"
 #include "gpu/command_buffer/service/gpu_preferences.h"
 #include "gpu/command_buffer/service/shader_translator_cache.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/gpu_export.h"
 
@@ -231,6 +232,24 @@ class GPU_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
     syncs_id_map_.erase(client_id);
   }
 
+  void milko_AddSyncId(GLsync client_id, GLsync service_id) {
+    milko_syncs_id_map_[client_id] = service_id;
+  }
+
+  bool milko_GetSyncServiceId(GLsync client_id, GLsync* service_id) const {
+    base::hash_map<GLsync, GLsync>::const_iterator iter =
+        milko_syncs_id_map_.find(client_id);
+    if (iter == milko_syncs_id_map_.end())
+      return false;
+    if (service_id)
+      *service_id = iter->second;
+    return true;
+  }
+
+  void milko_RemoveSyncId(GLsync client_id) {
+    milko_syncs_id_map_.erase(client_id);
+  }
+
   bool use_passthrough_cmd_decoder() const {
     return use_passthrough_cmd_decoder_;
   }
@@ -310,6 +329,7 @@ class GPU_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
 
   // Mappings from client side IDs to service side IDs.
   base::hash_map<GLuint, GLsync> syncs_id_map_;
+  base::hash_map<GLsync, GLsync> milko_syncs_id_map_;
 
   bool use_passthrough_cmd_decoder_;
   std::unique_ptr<PassthroughResources> passthrough_resources_;

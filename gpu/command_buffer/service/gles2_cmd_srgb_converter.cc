@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/gles2_cmd_srgb_converter.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "ui/gl/gl_version_info.h"
@@ -10,11 +11,11 @@
 namespace {
 
 void CompileShader(GLuint shader, const char* shader_source) {
-  glShaderSource(shader, 1, &shader_source, 0);
-  glCompileShader(shader);
+  vendorShaderSource(shader, 1, &shader_source, 0);
+  vendorCompileShader(shader);
 #ifndef NDEBUG
   GLint compile_status;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
+  vendorGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
   if (GL_TRUE != compile_status)
     DLOG(ERROR) << "CopyTexImage: shader compilation failure.";
 #endif
@@ -39,7 +40,7 @@ void SRGBConverter::InitializeSRGBConverterProgram() {
     return;
   }
 
-  srgb_converter_program_ = glCreateProgram();
+  srgb_converter_program_ = vendorCreateProgram();
 
   const char* kShaderPrecisionPreamble =
       "#ifdef GL_ES\n"
@@ -92,10 +93,10 @@ void SRGBConverter::InitializeSRGBConverterProgram() {
       "    gl_Position = vec4(xy, 0.0, 1.0);\n"
       "    v_texcoord = quad_positions[gl_VertexID];\n"
       "}\n";
-  GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+  GLuint vs = vendorCreateShader(GL_VERTEX_SHADER);
   CompileShader(vs, vs_source.c_str());
-  glAttachShader(srgb_converter_program_, vs);
-  glDeleteShader(vs);
+  vendorAttachShader(srgb_converter_program_, vs);
+  vendorDeleteShader(vs);
 
   // Compile the fragment shader
 
@@ -151,24 +152,24 @@ void SRGBConverter::InitializeSRGBConverterProgram() {
       "    FRAGCOLOR = c;\n"
       "}\n";
 
-  GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+  GLuint fs = vendorCreateShader(GL_FRAGMENT_SHADER);
   CompileShader(fs, fs_source.c_str());
-  glAttachShader(srgb_converter_program_, fs);
-  glDeleteShader(fs);
+  vendorAttachShader(srgb_converter_program_, fs);
+  vendorDeleteShader(fs);
 
-  glLinkProgram(srgb_converter_program_);
+  vendorLinkProgram(srgb_converter_program_);
 #ifndef NDEBUG
   GLint linked = 0;
-  glGetProgramiv(srgb_converter_program_, GL_LINK_STATUS, &linked);
+  vendorGetProgramiv(srgb_converter_program_, GL_LINK_STATUS, &linked);
   if (!linked) {
     DLOG(ERROR) << "BlitFramebuffer: program link failure.";
   }
 #endif
 
   GLuint texture_uniform =
-      glGetUniformLocation(srgb_converter_program_, "u_source_texture");
-  glUseProgram(srgb_converter_program_);
-  glUniform1i(texture_uniform, 0);
+      vendorGetUniformLocation(srgb_converter_program_, "u_source_texture");
+  vendorUseProgram(srgb_converter_program_);
+  vendorUniform1i(texture_uniform, 0);
 }
 
 void SRGBConverter::InitializeSRGBConverter(
@@ -179,23 +180,23 @@ void SRGBConverter::InitializeSRGBConverter(
 
   InitializeSRGBConverterProgram();
 
-  glGenTextures(
+  vendorGenTextures(
       srgb_converter_textures_.size(), srgb_converter_textures_.data());
-  glActiveTexture(GL_TEXTURE0);
+  vendorActiveTexture(GL_TEXTURE0);
   for (auto srgb_converter_texture : srgb_converter_textures_) {
-    glBindTexture(GL_TEXTURE_2D, srgb_converter_texture);
+    vendorBindTexture(GL_TEXTURE_2D, srgb_converter_texture);
 
     // Use linear, non-mipmapped sampling with the srgb converter texture
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   }
 
-  glGenFramebuffersEXT(1, &srgb_decoder_fbo_);
-  glGenFramebuffersEXT(1, &srgb_encoder_fbo_);
+  vendorGenFramebuffersEXT(1, &srgb_decoder_fbo_);
+  vendorGenFramebuffersEXT(1, &srgb_encoder_fbo_);
 
-  glGenVertexArraysOES(1, &srgb_converter_vao_);
+  vendorGenVertexArraysOES(1, &srgb_converter_vao_);
 
   decoder->RestoreTextureUnitBindings(0);
   decoder->RestoreActiveTexture();
@@ -206,19 +207,19 @@ void SRGBConverter::InitializeSRGBConverter(
 
 void SRGBConverter::Destroy() {
   if (srgb_converter_initialized_) {
-    glDeleteTextures(srgb_converter_textures_.size(),
+    vendorDeleteTextures(srgb_converter_textures_.size(),
                      srgb_converter_textures_.data());
     srgb_converter_textures_.fill(0);
 
-    glDeleteFramebuffersEXT(1, &srgb_decoder_fbo_);
+    vendorDeleteFramebuffersEXT(1, &srgb_decoder_fbo_);
     srgb_decoder_fbo_ = 0;
-    glDeleteFramebuffersEXT(1, &srgb_encoder_fbo_);
+    vendorDeleteFramebuffersEXT(1, &srgb_encoder_fbo_);
     srgb_encoder_fbo_ = 0;
 
-    glDeleteVertexArraysOES(1, &srgb_converter_vao_);
+    vendorDeleteVertexArraysOES(1, &srgb_converter_vao_);
     srgb_converter_vao_ = 0;
 
-    glDeleteProgram(srgb_converter_program_);
+    vendorDeleteProgram(srgb_converter_program_);
     srgb_converter_program_ = 0;
 
     srgb_converter_initialized_ = false;
@@ -263,17 +264,17 @@ void SRGBConverter::Blit(
   DCHECK(!feature_info_->gl_version_info().is_es);
 
   // Set the states
-  glActiveTexture(GL_TEXTURE0);
-  glDisable(GL_SCISSOR_TEST);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_CULL_FACE);
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDepthMask(GL_FALSE);
-  glDisable(GL_BLEND);
-  glDisable(GL_DITHER);
+  vendorActiveTexture(GL_TEXTURE0);
+  vendorDisable(GL_SCISSOR_TEST);
+  vendorDisable(GL_DEPTH_TEST);
+  vendorDisable(GL_STENCIL_TEST);
+  vendorDisable(GL_CULL_FACE);
+  vendorColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  vendorDepthMask(GL_FALSE);
+  vendorDisable(GL_BLEND);
+  vendorDisable(GL_DITHER);
   if (decoder->GetFeatureInfo()->feature_flags().ext_window_rectangles) {
-    glWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
+    vendorWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
   }
 
   // Copy the image from read buffer to the 1st texture(srgb).
@@ -281,8 +282,8 @@ void SRGBConverter::Blit(
   // directly from that texture. In this way, we can save gpu memory.
   GLuint width_read = 0, height_read = 0, xoffset = 0, yoffset = 0;
   if (decode) {
-    glBindFramebufferEXT(GL_FRAMEBUFFER, src_framebuffer);
-    glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
+    vendorBindFramebufferEXT(GL_FRAMEBUFFER, src_framebuffer);
+    vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
 
     // We should not copy pixels outside of the read framebuffer. If we read
     // these pixels, they would become in-bound during BlitFramebuffer. However,
@@ -297,32 +298,32 @@ void SRGBConverter::Blit(
     c.Intersect(gfx::Rect(x, y, width_read, height_read));
     xoffset = c.x() - x;
     yoffset = c.y() - y;
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, src_framebuffer_internal_format,
+    vendorCopyTexImage2D(GL_TEXTURE_2D, 0, src_framebuffer_internal_format,
                      c.x(), c.y(), c.width(), c.height(), 0);
 
     // Make a temporary linear texture as the 2nd texture, where we
     // render the converted (srgb to linear) result to.
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-    glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, c.width(), c.height(), 0,
+    vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
+    vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, c.width(), c.height(), 0,
                  GL_RGBA, GL_FLOAT, nullptr);
-    glBindFramebufferEXT(GL_FRAMEBUFFER, srgb_decoder_fbo_);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+    vendorBindFramebufferEXT(GL_FRAMEBUFFER, srgb_decoder_fbo_);
+    vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, srgb_converter_textures_[1], 0);
 
     // Sampling from the 1st texture(srgb) and drawing to the
     // 2nd texture(linear),
-    glUseProgram(srgb_converter_program_);
-    glViewport(0, 0, width_read, height_read);
+    vendorUseProgram(srgb_converter_program_);
+    vendorViewport(0, 0, width_read, height_read);
 
-    glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
-    glBindVertexArrayOES(srgb_converter_vao_);
+    vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
+    vendorBindVertexArrayOES(srgb_converter_vao_);
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    vendorDrawArrays(GL_TRIANGLES, 0, 6);
   } else {
     // Set approriate read framebuffer if decoding is skipped.
-    glBindFramebufferEXT(GL_READ_FRAMEBUFFER, src_framebuffer);
+    vendorBindFramebufferEXT(GL_READ_FRAMEBUFFER, src_framebuffer);
   }
 
   // Create the 3rd texture(linear) as encoder_fbo's draw buffer. But we can
@@ -331,29 +332,29 @@ void SRGBConverter::Blit(
   // during bliting. Note that the src and dst coordinates may be reversed.
   GLuint width_draw = 0, height_draw = 0;
   if (encode) {
-    glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
+    vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
 
     width_draw = dstX1 > dstX0 ? dstX1 - dstX0 : dstX0 - dstX1;
     height_draw = dstY1 > dstY0 ? dstY1 - dstY0 : dstY0 - dstY1;
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-    glTexImage2D(
+    vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    vendorTexImage2D(
         GL_TEXTURE_2D, 0, decode ? GL_RGBA32F : src_framebuffer_internal_format,
         width_draw, height_draw, 0, decode ? GL_RGBA : src_framebuffer_format,
         decode ? GL_FLOAT : src_framebuffer_type, nullptr);
 
-    glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, srgb_encoder_fbo_);
-    glFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+    vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, srgb_encoder_fbo_);
+    vendorFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, srgb_converter_textures_[0], 0);
   } else {
     // Set approriate draw framebuffer if encoding is skipped.
-    glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, dst_framebuffer);
+    vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, dst_framebuffer);
 
     if (enable_scissor_test) {
-      glEnable(GL_SCISSOR_TEST);
+      vendorEnable(GL_SCISSOR_TEST);
     }
   }
 
-  glBlitFramebuffer(
+  vendorBlitFramebuffer(
       decode ? (srcX0 < srcX1 ? 0 - xoffset : width_read - xoffset) : srcX0,
       decode ? (srcY0 < srcY1 ? 0 - yoffset : height_read - yoffset) : srcY0,
       decode ? (srcX0 < srcX1 ? width_read - xoffset : 0 - xoffset) : srcX1,
@@ -370,18 +371,18 @@ void SRGBConverter::Blit(
   if (encode) {
     GLuint xstart = dstX0 < dstX1 ? dstX0 : dstX1;
     GLuint ystart = dstY0 < dstY1 ? dstY0 : dstY1;
-    glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, dst_framebuffer);
-    glUseProgram(srgb_converter_program_);
-    glViewport(xstart, ystart, width_draw, height_draw);
+    vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, dst_framebuffer);
+    vendorUseProgram(srgb_converter_program_);
+    vendorViewport(xstart, ystart, width_draw, height_draw);
 
-    glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
-    glBindVertexArrayOES(srgb_converter_vao_);
+    vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[0]);
+    vendorBindVertexArrayOES(srgb_converter_vao_);
 
     if (enable_scissor_test) {
-      glEnable(GL_SCISSOR_TEST);
+      vendorEnable(GL_SCISSOR_TEST);
     }
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    vendorDrawArrays(GL_TRIANGLES, 0, 6);
   }
 
   // Restore state
@@ -435,48 +436,48 @@ void SRGBConverter::GenerateMipmap(const gles2::GLES2Decoder* decoder,
     max_mipmap_available_level = max.ValueOrDie();
   }
 
-  glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
+  vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
   if (feature_info_->ext_color_buffer_float_available() &&
       feature_info_->oes_texture_float_linear_available()) {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA,
+    vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA,
                  GL_FLOAT, nullptr);
   } else {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
+    vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
   }
-  glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, srgb_decoder_fbo_);
-  glFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+  vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, srgb_decoder_fbo_);
+  vendorFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                             GL_TEXTURE_2D, srgb_converter_textures_[1], 0);
 
   // bind texture with srgb format and render with srgb_converter_program_
-  glUseProgram(srgb_converter_program_);
-  glViewport(0, 0, width, height);
-  glDisable(GL_SCISSOR_TEST);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_CULL_FACE);
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDepthMask(GL_FALSE);
-  glDisable(GL_BLEND);
-  glDisable(GL_DITHER);
+  vendorUseProgram(srgb_converter_program_);
+  vendorViewport(0, 0, width, height);
+  vendorDisable(GL_SCISSOR_TEST);
+  vendorDisable(GL_DEPTH_TEST);
+  vendorDisable(GL_STENCIL_TEST);
+  vendorDisable(GL_CULL_FACE);
+  vendorColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  vendorDepthMask(GL_FALSE);
+  vendorDisable(GL_BLEND);
+  vendorDisable(GL_DITHER);
   if (decoder->GetFeatureInfo()->feature_flags().ext_window_rectangles) {
-    glWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
+    vendorWindowRectanglesEXT(GL_EXCLUSIVE_EXT, 0, nullptr);
   }
 
-  glBindVertexArrayOES(srgb_converter_vao_);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, tex->service_id());
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  vendorBindVertexArrayOES(srgb_converter_vao_);
+  vendorActiveTexture(GL_TEXTURE0);
+  vendorBindTexture(GL_TEXTURE_2D, tex->service_id());
+  vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-  glDrawArrays(GL_TRIANGLES, 0, 6);
+  vendorDrawArrays(GL_TRIANGLES, 0, 6);
 
-  glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
-  glGenerateMipmapEXT(GL_TEXTURE_2D);
+  vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
+  vendorGenerateMipmapEXT(GL_TEXTURE_2D);
 
   // bind tex with rgba format and render with srgb_converter_program_
-  glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, srgb_encoder_fbo_);
-  glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+  vendorBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, srgb_encoder_fbo_);
+  vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
+  vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                   GL_NEAREST_MIPMAP_NEAREST);
 
   width = (width == 1) ? 1 : width >> 1;
@@ -486,31 +487,31 @@ void SRGBConverter::GenerateMipmap(const gles2::GLES2Decoder* decoder,
   level += 1;
 
   if (!tex->IsImmutable()) {
-    glBindTexture(GL_TEXTURE_2D, tex->service_id());
+    vendorBindTexture(GL_TEXTURE_2D, tex->service_id());
     GLsizei level_width = width;
     GLsizei level_height = height;
     for (base::CheckedNumeric<GLint> i = level;
          i.IsValid() && i.ValueOrDie() <= max_mipmap_available_level; ++i) {
-      glTexImage2D(GL_TEXTURE_2D, i.ValueOrDie(), internal_format, level_width,
+      vendorTexImage2D(GL_TEXTURE_2D, i.ValueOrDie(), internal_format, level_width,
                    level_height, 0, format, type, nullptr);
       level_width = (level_width == 1) ? 1 : level_width >> 1;
       level_height = (level_height == 1) ? 1 : level_height >> 1;
     }
   }
 
-  glBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
+  vendorBindTexture(GL_TEXTURE_2D, srgb_converter_textures_[1]);
   for (base::CheckedNumeric<GLint> i = level;
        i.IsValid() && i.ValueOrDie() <= max_mipmap_available_level; ++i) {
     // copy mipmaps level by level from srgb_converter_textures_[1] to tex
     // generate mipmap for tex manually
-    glFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+    vendorFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, tex->service_id(), i.ValueOrDie());
 
     DCHECK_EQ(static_cast<GLenum>(GL_FRAMEBUFFER_COMPLETE),
-              glCheckFramebufferStatusEXT(GL_DRAW_FRAMEBUFFER));
+              vendorCheckFramebufferStatusEXT(GL_DRAW_FRAMEBUFFER));
 
-    glViewport(0, 0, width, height);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    vendorViewport(0, 0, width, height);
+    vendorDrawArrays(GL_TRIANGLES, 0, 6);
     width = (width == 1) ? 1 : width >> 1;
     height = (height == 1) ? 1 : height >> 1;
   }

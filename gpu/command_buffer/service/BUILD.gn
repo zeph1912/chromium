@@ -20,7 +20,7 @@ group("service") {
 if (is_component_build) {
   link_target_type = "source_set"
 } else {
-  link_target_type = "static_library"
+  link_target_type = "shared_library"
 }
 target(link_target_type, "service_sources") {
   # External code should depend on this via //gpu/command_buffer/service above
@@ -150,6 +150,7 @@ target(link_target_type, "service_sources") {
     "vertex_array_manager.h",
     "vertex_attrib_manager.cc",
     "vertex_attrib_manager.h",
+    "vendor_gl.cc",
   ]
 
   configs += [
@@ -157,6 +158,7 @@ target(link_target_type, "service_sources") {
     "//gpu:gpu_implementation",
     "//third_party/khronos:khronos_headers",
   ]
+
 
   # Prefer mesa GL headers to system headers, which cause problems on Win.
   include_dirs = [ "//third_party/mesa/src/include" ]

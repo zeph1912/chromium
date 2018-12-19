@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/feature_info.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stddef.h>
 
@@ -16,6 +17,8 @@
 #include "build/build_config.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/texture_definition.h"
+#include "gpu/command_buffer/service/milko_prints.h"
+
 #include "gpu/config/gpu_switches.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_fence.h"
@@ -50,9 +53,9 @@ class ScopedPixelUnpackBufferOverride {
       : orig_binding_(-1) {
     if (enable_es3) {
       GLint orig_binding = 0;
-      glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &orig_binding);
+      vendorGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &orig_binding);
       if (static_cast<GLuint>(orig_binding) != binding_override) {
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, binding_override);
+        vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, binding_override);
         orig_binding_ = orig_binding;
       }
     }
@@ -60,7 +63,7 @@ class ScopedPixelUnpackBufferOverride {
 
   ~ScopedPixelUnpackBufferOverride() {
     if (orig_binding_ != -1) {
-      glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(orig_binding_));
+      vendorBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(orig_binding_));
     }
   }
 
@@ -71,66 +74,67 @@ class ScopedPixelUnpackBufferOverride {
 bool IsWebGLDrawBuffersSupported(bool webglCompatibilityContext,
                                  GLenum depth_texture_internal_format,
                                  GLenum depth_stencil_texture_internal_format) {
+  return false; 
   // This is called after we make sure GL_EXT_draw_buffers is supported.
   GLint max_draw_buffers = 0;
   GLint max_color_attachments = 0;
-  glGetIntegerv(GL_MAX_DRAW_BUFFERS, &max_draw_buffers);
-  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
+  vendorGetIntegerv(GL_MAX_DRAW_BUFFERS, &max_draw_buffers);
+  vendorGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
   if (max_draw_buffers < 4 || max_color_attachments < 4) {
     return false;
   }
 
   GLint fb_binding = 0;
   GLint tex_binding = 0;
-  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_binding);
-  glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_binding);
+  vendorGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_binding);
+  vendorGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_binding);
 
   GLuint fbo;
-  glGenFramebuffersEXT(1, &fbo);
-  glBindFramebufferEXT(GL_FRAMEBUFFER, fbo);
+  vendorGenFramebuffersEXT(1, &fbo);
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, fbo);
 
   GLuint depth_stencil_texture = 0;
   if (depth_stencil_texture_internal_format != GL_NONE) {
-    glGenTextures(1, &depth_stencil_texture);
-    glBindTexture(GL_TEXTURE_2D, depth_stencil_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, depth_stencil_texture_internal_format, 1, 1,
+    vendorGenTextures(1, &depth_stencil_texture);
+    vendorBindTexture(GL_TEXTURE_2D, depth_stencil_texture);
+    vendorTexImage2D(GL_TEXTURE_2D, 0, depth_stencil_texture_internal_format, 1, 1,
                  0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
   }
 
   GLuint depth_texture = 0;
   if (depth_texture_internal_format != GL_NONE) {
-    glGenTextures(1, &depth_texture);
-    glBindTexture(GL_TEXTURE_2D, depth_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, depth_texture_internal_format, 1, 1, 0,
+    vendorGenTextures(1, &depth_texture);
+    vendorBindTexture(GL_TEXTURE_2D, depth_texture);
+    vendorTexImage2D(GL_TEXTURE_2D, 0, depth_texture_internal_format, 1, 1, 0,
                  GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
   }
 
   GLint max_allowed_buffers = std::min(max_draw_buffers, max_color_attachments);
   std::vector<GLuint> colors(max_allowed_buffers, 0);
-  glGenTextures(max_allowed_buffers, colors.data());
+  vendorGenTextures(max_allowed_buffers, colors.data());
 
   bool result = true;
   for (GLint i = 0; i < max_allowed_buffers; ++i) {
     GLint color = colors[i];
-    glBindTexture(GL_TEXTURE_2D, color);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+    vendorBindTexture(GL_TEXTURE_2D, color);
+    vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                  nullptr);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i,
+    vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i,
                               GL_TEXTURE_2D, color, 0);
-    if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) !=
+    if (vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER) !=
         GL_FRAMEBUFFER_COMPLETE) {
       result = false;
       break;
     }
     if (depth_texture != 0) {
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+      vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                 GL_TEXTURE_2D, depth_texture, 0);
-      if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) !=
+      if (vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER) !=
           GL_FRAMEBUFFER_COMPLETE) {
         result = false;
         break;
       }
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+      vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                 GL_TEXTURE_2D, 0, 0);
     }
     if (depth_stencil_texture != 0) {
@@ -138,38 +142,38 @@ bool IsWebGLDrawBuffersSupported(bool webglCompatibilityContext,
       // DEPTH and STENCIL attachment points, instead the texture must be bound
       // to the DEPTH_STENCIL.
       if (webglCompatibilityContext) {
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+        vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                                   GL_TEXTURE_2D, depth_stencil_texture, 0);
       } else {
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+        vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                   GL_TEXTURE_2D, depth_stencil_texture, 0);
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+        vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
                                   GL_TEXTURE_2D, depth_stencil_texture, 0);
       }
-      if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) !=
+      if (vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER) !=
           GL_FRAMEBUFFER_COMPLETE) {
         result = false;
         break;
       }
       if (webglCompatibilityContext) {
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+        vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                                   GL_TEXTURE_2D, 0, 0);
       } else {
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+        vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                   GL_TEXTURE_2D, 0, 0);
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+        vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
                                   GL_TEXTURE_2D, 0, 0);
       }
     }
   }
 
-  glBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
-  glDeleteFramebuffersEXT(1, &fbo);
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
+  vendorDeleteFramebuffersEXT(1, &fbo);
 
-  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
-  glDeleteTextures(1, &depth_texture);
-  glDeleteTextures(1, &depth_stencil_texture);
-  glDeleteTextures(colors.size(), colors.data());
+  vendorBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
+  vendorDeleteTextures(1, &depth_texture);
+  vendorDeleteTextures(1, &depth_stencil_texture);
+  vendorDeleteTextures(colors.size(), colors.data());
 
   DCHECK(glGetError() == GL_NO_ERROR);
 
@@ -271,33 +275,34 @@ void FeatureInfo::InitializeForTesting(ContextType context_type) {
 }
 
 bool IsGL_REDSupportedOnFBOs() {
+  return false; 
   DCHECK(glGetError() == GL_NO_ERROR);
   // Skia uses GL_RED with frame buffers, unfortunately, Mesa claims to support
   // GL_EXT_texture_rg, but it doesn't support it on frame buffers.  To fix
   // this, we try it, and if it fails, we don't expose GL_EXT_texture_rg.
   GLint fb_binding = 0;
   GLint tex_binding = 0;
-  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_binding);
-  glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_binding);
+  vendorGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_binding);
+  vendorGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_binding);
 
   GLuint textureId = 0;
-  glGenTextures(1, &textureId);
-  glBindTexture(GL_TEXTURE_2D, textureId);
+  vendorGenTextures(1, &textureId);
+  vendorBindTexture(GL_TEXTURE_2D, textureId);
   GLubyte data[1] = {0};
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED_EXT, 1, 1, 0, GL_RED_EXT,
+  vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RED_EXT, 1, 1, 0, GL_RED_EXT,
                GL_UNSIGNED_BYTE, data);
   GLuint textureFBOID = 0;
-  glGenFramebuffersEXT(1, &textureFBOID);
-  glBindFramebufferEXT(GL_FRAMEBUFFER, textureFBOID);
-  glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+  vendorGenFramebuffersEXT(1, &textureFBOID);
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, textureFBOID);
+  vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                             textureId, 0);
   bool result =
-      glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-  glDeleteFramebuffersEXT(1, &textureFBOID);
-  glDeleteTextures(1, &textureId);
+      vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  vendorDeleteFramebuffersEXT(1, &textureFBOID);
+  vendorDeleteTextures(1, &textureId);
 
-  glBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
-  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
+  vendorBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
+  vendorBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
 
   DCHECK(glGetError() == GL_NO_ERROR);
 
@@ -387,13 +392,18 @@ void FeatureInfo::EnableOESTextureHalfFloatLinear() {
 
 void FeatureInfo::InitializeFeatures() {
   // Figure out what extensions to turn on.
-  std::string extensions_string(gl::GetGLExtensionsFromCurrentContext());
-  gl::ExtensionSet extensions(gl::MakeExtensionSet(extensions_string));
+  const char* extensions_char =
+      reinterpret_cast<const char*>(vendorGetString(GL_EXTENSIONS));
+  std::string extensions_str = std::string();
+  if (extensions_char) {
+    extensions_str = std::string(extensions_char);
+  }
+  gl::ExtensionSet extensions(gl::MakeExtensionSet(extensions_str));
 
   const char* version_str =
-      reinterpret_cast<const char*>(glGetString(GL_VERSION));
+      reinterpret_cast<const char*>(vendorGetString(GL_VERSION));
   const char* renderer_str =
-      reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+      reinterpret_cast<const char*>(vendorGetString(GL_RENDERER));
 
   gl_version_info_.reset(
       new gl::GLVersionInfo(version_str, renderer_str, extensions));
@@ -438,8 +448,6 @@ void FeatureInfo::InitializeFeatures() {
   AddExtensionString("GL_CHROMIUM_texture_storage_image");
 #endif
 
-  if (!disallowed_features_.gpu_memory_manager)
-    AddExtensionString("GL_CHROMIUM_gpu_memory_manager");
 
   if (gl::HasExtension(extensions, "GL_ANGLE_translated_shader_source")) {
     feature_flags_.angle_translated_shader_source = true;
@@ -1146,7 +1154,7 @@ void FeatureInfo::InitializeFeatures() {
 
   if (IsWebGL2OrES3Context() || have_es2_draw_buffers) {
     GLint max_color_attachments = 0;
-    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS_EXT, &max_color_attachments);
+    vendorGetIntegerv(GL_MAX_COLOR_ATTACHMENTS_EXT, &max_color_attachments);
     for (GLenum i = GL_COLOR_ATTACHMENT1_EXT;
          i < static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + max_color_attachments);
          ++i) {
@@ -1159,7 +1167,7 @@ void FeatureInfo::InitializeFeatures() {
     validators_.g_l_state.AddValue(GL_MAX_COLOR_ATTACHMENTS_EXT);
     validators_.g_l_state.AddValue(GL_MAX_DRAW_BUFFERS_ARB);
     GLint max_draw_buffers = 0;
-    glGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &max_draw_buffers);
+    vendorGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &max_draw_buffers);
     for (GLenum i = GL_DRAW_BUFFER0_ARB;
          i < static_cast<GLenum>(GL_DRAW_BUFFER0_ARB + max_draw_buffers); ++i) {
       validators_.g_l_state.AddValue(i);
@@ -1189,7 +1197,8 @@ void FeatureInfo::InitializeFeatures() {
     feature_flags_.ext_shader_texture_lod = true;
   }
 
-  bool ui_gl_fence_works = gl::GLFence::IsSupported();
+  bool ui_gl_fence_works = false;
+
   UMA_HISTOGRAM_BOOLEAN("GPU.FenceSupport", ui_gl_fence_works);
 
   feature_flags_.map_buffer_range =
@@ -1542,27 +1551,27 @@ void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
     // framebuffer created with its texture format is reported as complete.
     GLint fb_binding = 0;
     GLint tex_binding = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_binding);
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_binding);
+    vendorGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_binding);
+    vendorGetIntegerv(GL_TEXTURE_BINDING_2D, &tex_binding);
 
     GLuint tex_id = 0;
     GLuint fb_id = 0;
     GLsizei width = 16;
 
-    glGenTextures(1, &tex_id);
-    glGenFramebuffersEXT(1, &fb_id);
-    glBindTexture(GL_TEXTURE_2D, tex_id);
+    vendorGenTextures(1, &tex_id);
+    vendorGenFramebuffersEXT(1, &fb_id);
+    vendorBindTexture(GL_TEXTURE_2D, tex_id);
     // Nearest filter needed for framebuffer completeness on some drivers.
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, width, 0, GL_RGBA,
+    vendorTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, width, 0, GL_RGBA,
                  GL_FLOAT, NULL);
-    glBindFramebufferEXT(GL_FRAMEBUFFER, fb_id);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+    vendorBindFramebufferEXT(GL_FRAMEBUFFER, fb_id);
+    vendorFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, tex_id, 0);
-    GLenum status_rgba = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, width, 0, GL_RGB, GL_FLOAT,
+    GLenum status_rgba = vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
+    vendorTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, width, 0, GL_RGB, GL_FLOAT,
                  NULL);
-    GLenum status_rgb = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
+    GLenum status_rgb = vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
 
     // For desktop systems, check to see if we support rendering to the full
     // range of formats supported by EXT_color_buffer_float
@@ -1576,9 +1585,9 @@ void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
       };
       DCHECK_EQ(arraysize(internal_formats), arraysize(formats));
       for (size_t i = 0; i < arraysize(formats); ++i) {
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_formats[i], width, width, 0,
+        vendorTexImage2D(GL_TEXTURE_2D, 0, internal_formats[i], width, width, 0,
                      formats[i], GL_FLOAT, NULL);
-        full_float_support &= glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) ==
+        full_float_support &= vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER) ==
                               GL_FRAMEBUFFER_COMPLETE;
       }
       enable_ext_color_buffer_float = full_float_support;
@@ -1595,18 +1604,18 @@ void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
       GLenum internal_format = GL_RGBA16F;
       GLenum format = GL_RGBA;
       GLenum data_type = GL_HALF_FLOAT;
-      glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, width, 0, format,
+      vendorTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, width, 0, format,
                    data_type, nullptr);
       enable_ext_color_buffer_half_float =
-          (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) ==
+          (vendorCheckFramebufferStatusEXT(GL_FRAMEBUFFER) ==
            GL_FRAMEBUFFER_COMPLETE);
     }
 
-    glDeleteFramebuffersEXT(1, &fb_id);
-    glDeleteTextures(1, &tex_id);
+    vendorDeleteFramebuffersEXT(1, &fb_id);
+    vendorDeleteTextures(1, &tex_id);
 
-    glBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
-    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
+    vendorBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
+    vendorBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
 
     DCHECK_EQ(glGetError(), static_cast<GLuint>(GL_NO_ERROR));
 
@@ -1661,8 +1670,8 @@ void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
 bool FeatureInfo::IsES3Capable() const {
   if (workarounds_.disable_texture_storage)
     return false;
-  if (gl_version_info_)
-    return gl_version_info_->is_es3_capable;
+  if (version_)
+    return version_->is_es3_capable;
   return false;
 }
 
@@ -1671,7 +1680,7 @@ void FeatureInfo::EnableES3Validators() {
   validators_.UpdateValuesES3();
 
   GLint max_color_attachments = 0;
-  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
+  vendorGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
   const int kTotalColorAttachmentEnums = 16;
   const GLenum kColorAttachments[] = {
     GL_COLOR_ATTACHMENT0,
@@ -1704,7 +1713,7 @@ void FeatureInfo::EnableES3Validators() {
   }
 
   GLint max_draw_buffers = 0;
-  glGetIntegerv(GL_MAX_DRAW_BUFFERS, &max_draw_buffers);
+  vendorGetIntegerv(GL_MAX_DRAW_BUFFERS, &max_draw_buffers);
   const int kTotalDrawBufferEnums = 16;
   const GLenum kDrawBuffers[] = {
     GL_DRAW_BUFFER0,

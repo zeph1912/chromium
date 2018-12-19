@@ -22,10 +22,14 @@ namespace init {
 namespace {
 
 bool InitializeStaticEGLInternal() {
-  base::NativeLibrary gles_library = LoadLibraryAndPrintError("libGLESv2.so");
+  static const base::FilePath::CharType vendor_gles_library[] = 
+    FILE_PATH_LITERAL("/vendor/lib64/egl/libGLESv2_adreno.so");
+  static const base::FilePath::CharType vendor_egl_library[] = 
+    FILE_PATH_LITERAL("/vendor/lib64/egl/libEGL_adreno.so");
+  base::NativeLibrary gles_library = LoadLibraryAndPrintError(vendor_gles_library);
   if (!gles_library)
     return false;
-  base::NativeLibrary egl_library = LoadLibraryAndPrintError("libEGL.so");
+  base::NativeLibrary egl_library = LoadLibraryAndPrintError(vendor_egl_library);
   if (!egl_library) {
     base::UnloadNativeLibrary(gles_library);
     return false;

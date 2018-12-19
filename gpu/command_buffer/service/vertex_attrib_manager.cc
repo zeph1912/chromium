@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/vertex_attrib_manager.h"
+#include "gpu/command_buffer/service/vendor_gl.h"
 
 #include <stdint.h>
 
@@ -115,7 +116,7 @@ VertexAttribManager::~VertexAttribManager() {
   if (manager_) {
     if (manager_->have_context_) {
       if (service_id_ != 0)  // 0 indicates an emulated VAO
-        glDeleteVertexArraysOES(1, &service_id_);
+        vendorDeleteVertexArraysOES(1, &service_id_);
     }
     manager_->StopTracking(this);
     manager_ = NULL;
@@ -139,7 +140,7 @@ void VertexAttribManager::Initialize(uint32_t max_vertex_attribs,
     vertex_attribs_[vv].SetList(&disabled_vertex_attribs_);
 
     if (init_attribs) {
-      glVertexAttrib4f(vv, 0.0f, 0.0f, 0.0f, 1.0f);
+      vendorVertexAttrib4f(vv, 0.0f, 0.0f, 0.0f, 1.0f);
     }
   }
 }
@@ -237,12 +238,12 @@ bool VertexAttribManager::ValidateBindings(
         if (buffer->IsClientSideArray()) {
           if (current_buffer_id != 0) {
             current_buffer_id = 0;
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            vendorBindBuffer(GL_ARRAY_BUFFER, 0);
           }
           attrib->set_is_client_side_array(true);
           const void* ptr = buffer->GetRange(attrib->offset(), 0);
           DCHECK(ptr);
-          glVertexAttribPointer(
+          vendorVertexAttribPointer(
               attrib->index(),
               attrib->size(),
               attrib->type(),
@@ -254,10 +255,10 @@ bool VertexAttribManager::ValidateBindings(
           GLuint new_buffer_id = buffer->service_id();
           if (new_buffer_id != current_buffer_id) {
             current_buffer_id = new_buffer_id;
-            glBindBuffer(GL_ARRAY_BUFFER, current_buffer_id);
+            vendorBindBuffer(GL_ARRAY_BUFFER, current_buffer_id);
           }
           const void* ptr = reinterpret_cast<const void*>(attrib->offset());
-          glVertexAttribPointer(
+          vendorVertexAttribPointer(
               attrib->index(),
               attrib->size(),
               attrib->type(),

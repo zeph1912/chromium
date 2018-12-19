@@ -6,6 +6,7 @@
 #define UI_GL_GL_BINDINGS_H_
 
 #include "build/build_config.h"
+#include "gpu/command_buffer/service/milko_prints.h"
 
 // Includes the platform independent and platform dependent GL headers.
 
